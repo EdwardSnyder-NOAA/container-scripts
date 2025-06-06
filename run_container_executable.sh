@@ -11,6 +11,5 @@ export CONTAINERENV_ESMFMKFILE=ESMF_MK
 #cmd=$(basename "$0")
 cmd=BASEFILE
 arg="$@"
-echo running: singularity exec "${img}" $cmd $arg
 singularity exec BINDDIRS "${img}" $cmd $arg
 

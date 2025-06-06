@@ -2,6 +2,32 @@ import os
 import re
 import subprocess
 from argparse import ArgumentParser
+import stat
+
+def is_binary_executable(file_path):
+    # Check if the file exists and is a regular file
+    if not os.path.isfile(file_path):
+        return False
+
+    try:
+        isascii = os.popen("file "+file_path+" | /usr/bin/grep ASCII").read().strip()
+        if re.search("ASCII",isascii):
+            return False
+        else:
+            return True
+
+    except OSError:
+        pass
+
+    return False
+
+def get_binary_executables(dirpath):
+    # List files that are executable binaries
+    file_list = os.listdir(dirpath)
+    binary_executables = [file for file in file_list if is_binary_executable(os.path.join(dirpath,file))]
+
+    return binary_executables
+
 
 def read_envs_from_file(file_path):
     """
@@ -22,7 +48,7 @@ def read_envs_from_file(file_path):
         print(f"File not found: {file_path}")
         return []
 
-def modify_lua_content(content, envs_to_modify):
+def modify_lua_content(content, envs_to_modify, compiler_type):
     """
     Modify environment variable references in Lua content by prepending APPTAINERENV_.
     
@@ -48,9 +74,54 @@ def modify_lua_content(content, envs_to_modify):
         if modified_content != content:
             content = modified_content
     
+    # Iterate over each line in the content
+    modified_content_lines = []
+    local_path = args.output_dir+"/bin"
+    command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external ."
+    os.system(command)
+    for line in content.split('\n'):
+    # check to see if the path is being set in the modulefile
+        pattern = rf'"{env_regex}PATH"'
+        match = re.search(pattern,line)
+        new_pattern = os.getcwd()
+        if match:
+           if(compiler_type == "intel"):
+             new_line = re.sub(r'"([^"]*)\s*(?=intel)', f'"{new_pattern}/', line)
+           else:
+             new_line = re.sub(r'"([^"]*)\s*(?=oneapi)', f'"{new_pattern}/', line)
+#          new_line = re.sub(r'"([^"]*)\s*(?=' + re.escape(compiler_type) + ')', f'"{new_pattern}/"', line)
+           new_line = re.sub(pattern, '"PATH"', new_line)
+           parts = new_line.split('"')
+           bindir = parts[3]
+           parts = line.split('"')
+           containerdir = parts[3]
+           print("checking bindir of ",bindir)
+           # create the same directory on the local host
+           host_root_dir=os.path.abspath(os.path.join(bindir, "../.."))
+           container_root_dir=os.path.abspath(os.path.join(containerdir, ".."))
+           command="singularity exec "+args.img+" mkdir -p "+bindir
+           print(command)
+           os.system(command)
+           # copy in all the files from the container to the host
+           command = "singularity exec "+args.img+" cp -r "+container_root_dir+" "+host_root_dir
+           print(command)
+           os.system(command)
+           print("container bindir is ",containerdir)
+           # now externalize the executables in that directory on the host
+           if(os.path.exists(bindir)):
+             binary_files = get_binary_executables(bindir)
+             print(binary_files)
+             for binfile in binary_files:
+               command = "./make-external "+os.path.join(bindir,binfile) 
+               print(command)
+               os.system(command)
+           content += new_line
+           break
+
     return content
 
-def copy_and_modify_lua_files(output_dir, vars_file):
+
+def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
     """
     Copy all Lua files from the source directory to a new output directory,
     modifying them by prepending APPTAINERENV_ or SINGULARITYENV to specified environment variables.
@@ -58,7 +129,8 @@ def copy_and_modify_lua_files(output_dir, vars_file):
     :param output_dir: str, The path to the output directory where modified Lua files will be saved.
     :param vars_file: str, The path to the file containing environment variable names.
     """
-    source_dir = "./.modulefiles"
+    source_dir = "./modulefiles"
+    print("running copy and modify")
     try:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -70,7 +142,7 @@ def copy_and_modify_lua_files(output_dir, vars_file):
                     with open(file_path, 'r') as f:
                         content = f.read()
                     
-                    modified_content = modify_lua_content(content, read_envs_from_file(vars_file))
+                    modified_content = modify_lua_content(content, read_envs_from_file(vars_file),compiler_type)
                     
                     # Determine the output file path relative to the source directory
                     relative_path = os.path.relpath(file_path, source_dir)
@@ -105,24 +177,26 @@ if __name__ == "__main__":
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
     # copy the all the modulefiles out of the container image
-    # remove any old .modulefiles in place
-    os.system("rm -rf ./.modulefiles")
-    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ./.modulefiles"
+    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
+    print(command)
     os.system(command)
 
-    # get a list of all the files that contain either setenv, or _path
-    os.system("grep -R setenv .modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq > .envs")
-    os.system("grep -R _path .modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq >> .envs")
-    os.system("sed -i '/MODULEPATH/d' .envs")
-    # walk through all the files and change variables to contain APPTAINERENV_ or SINGULARITYENV_
-    copy_and_modify_lua_files(args.output_dir, ".envs")
-
     # get the stack type (intel v oneapi)
-    stack_type=os.popen("ls ./.modulefiles/Core").read().strip()
+    stack_type=os.popen("ls ./modulefiles/Core").read().strip()
     compiler_type=stack_type.split("-")[1]
 
+#   command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/"+compiler_type+" ."
+#   os.system(command)
+
+    # get a list of all the files that contain either setenv, or _path
+    os.system("/usr/bin/grep -R setenv modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq > .envs")
+    os.system("/usr/bin/grep -R _path modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq >> .envs")
+    os.system("sed -i '/MODULEPATH/d' .envs")
+    # walk through all the files and change variables to contain APPTAINERENV_ or SINGULARITYENV_
+    copy_and_modify_lua_files(args.output_dir, ".envs", compiler_type)
+
     # get the original module path from the lua file
-    command = 'grep MODULEPATH ./.modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
+    command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
     spack_stack_path = os.popen(command).read().strip()
 
     parts = spack_stack_path.split('/')
@@ -130,15 +204,11 @@ if __name__ == "__main__":
     parts[:modulefiles_index + 1] = [args.output_dir]
     new_path = '/'.join(parts)
    
-#   compiler_ver = os.popen("ls ./modulefiles/"+compiler_type).read().strip()
-#   path_list = [args.output_dir,compiler_type,compiler_ver]
-#   delimiter = "/"
-#   new_path = delimiter.join(path_list)
-    command ="grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+spack_stack_path+"|"+new_path+"|g'"
+    command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+spack_stack_path+"|"+new_path+"|g'"
     os.system(command)
 
     # get the origin module path for the mpi module
-    command = 'grep -R MODULEPATH ./.modulefiles/'+compiler_type+'/*/stack-* | awk -F \'"\' \'{print $4}\' | head -n 1'
+    command = '/usr/bin/grep -R MODULEPATH ./modulefiles/'+compiler_type+' | awk -F \'"\' \'{print $4}\' | head -n 1'
     mpi_stack_path = os.popen(command).read().strip()
     print("using this modulepath to grep",mpi_stack_path)
     # replace the original path with the new path on the host system
@@ -146,70 +216,49 @@ if __name__ == "__main__":
     modulefiles_index = parts.index("modulefiles")
     parts[:modulefiles_index + 1] = [args.output_dir]
     new_path = '/'.join(parts)
-    command ="grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type+" | xargs sed -i 's|"+mpi_stack_path+"|"+new_path+"|g'"
+    command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type+" | xargs sed -i 's|"+mpi_stack_path+"|"+new_path+"|g'"
     os.system(command)
 
     #set some basic paths inside the container that also include the location of ifort, icc, and icpc
     lua_file_path = args.output_dir+"/Core/"+stack_type+"/*.lua"
     container_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local"
 
-    command = "grep ENV_F77 "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
+    command = "/usr/bin/grep ENV_F77 "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
     container_path = container_path+":"+os.popen(command).read().strip()
-    command = "grep ENV_CC "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
+    command = "/usr/bin/grep ENV_CC "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
     container_path = container_path+":"+os.popen(command).read().strip()
 
     stack_intel_lua_file = args.output_dir+'/Core/'+stack_type+'/*.lua'
     command = f"sed -i '/prereq/a setenv(\"{env_regex}PATH\",\""+container_path+"\")' "+stack_intel_lua_file
     os.system(command)
+
+    # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
+    command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
+    os.system(command)
+
     #set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
+    #add img to the stack-intel/oneapi module as well
     local_path = args.output_dir+"/bin"
     os.system("mkdir "+local_path)
     new_line = 'prepend_path("PATH","'+local_path+'")'
     sed_command = f'sed -i \'/ENV_PATH/a {new_line}\' {stack_intel_lua_file}'
     os.system(sed_command)
-
-    # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
-    command = "grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
-    os.system(command)
-    # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
-    command = "singularity exec -B "+basepath+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
-    os.system(command)
-#   os.system("rm -rf ./.modulefiles")
+    new_line = 'setenv("img","'+args.img+'")'
+    sed_command = f'sed -i \'/ENV_PATH/a {new_line}\' {stack_intel_lua_file}'
+    os.system(sed_command)
 
     #put make-external in the bin path
     command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external "+local_path
     os.system(command)
 
-    #special cases for prod_util and wgrib2, which both get called directly from various workflow scripts
-    #externalize wgrib2 and put it in local_path from above
-    #get full path to wgrib2 from module file
-    command = "grep -Ri wgrib2_ROOT "+args.output_dir+" | awk -F '\"' '{print $4}'"
-    print(command)
-    wgrib2 = os.popen(command).read().strip()+"/bin/wgrib2"
-    command = "singularity exec -B /"+args.output_dir+" $img cp "+wgrib2+" "+local_path
-    print(command)
+    # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
+    command = "singularity exec -B "+basepath+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
     os.system(command)
-
-    # externalize it
-    command = local_path+"/make-external "+local_path+"/wgrib2" 
-    print(command)
+    os.system("rm -rf ./modulefiles")
+    os.system("rm ./make-external")
+    
+    command = "echo $(find "+args.output_dir+" -iname netcdf-c)/*"
+    luafile = os.popen(command).read().strip()
+    os.system("echo >> "+luafile)
+    command = "cat "+luafile+" | /usr/bin/grep ENV_LD_LIBRARY_PATH | sed 's/LD_LIB/LIB/g' >>"+luafile
     os.system(command)
-
-    #get full path to prod_util
-    command = "grep -Ri prod_util_ROOT "+args.output_dir+" | awk -F '\"' '{print $4}'"
-    print(command)
-    prod_util_path = os.popen(command).read().strip()+"/bin/"
-    binfiles = ["fsync_file", "mdate", "ndate", "nhour"]
-    asciifiles= ["compath.py","cpfs","cpreq","date2jday.sh","err_chk","err_exit","finddate.sh","getjsonvalue","getsystem","mail.py","postmsg","prep_step","setpdy.sh","startmsg"]
-    for file in asciifiles:
-       command = "singularity exec -B "+basepath+" $img cp "+prod_util_path+file+" "+local_path
-       print(command)
-       os.system(command)
-
-    for file in binfiles:
-       command = "singularity exec -B "+basepath+" $img cp "+prod_util_path+file+" "+local_path
-       os.system(command)
-       command = local_path+"/make-external "+local_path+"/"+file
-       print(command)
-       os.system(command)
-

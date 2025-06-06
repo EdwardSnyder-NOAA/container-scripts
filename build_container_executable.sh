@@ -11,6 +11,5 @@ export CONTAINERENV_CMAKE_PREFIX_PATH=CMAKE_PREPATH
 export CONTAINERENV_ESMFMKFILE=ESMF_MK
 cmd=BASEFILE
 arg="$@"
-echo running: singularity exec "${img}" $cmd $arg
 singularity exec -e BINDDIRS "${img}" $cmd $arg
 

@@ -6,10 +6,10 @@ fileList=$@
 script_dir=$(dirname "$0")
 cp $script_dir/run_modularized_executable.sh $PWD
 #replace CONTAINERENV_ with SINGULARITY/APPTAINER
-if [[ -z $(env | grep APPTAINER) ]]; then 
-   sed -i 's/CONTAINERENV_/SINGULARITYENV_/g' $PWD/run_modularized_executable.sh
+if [[ -z `singularity help | grep apptainer` ]]; then 
+   sed -i 's/CONTAINERENV_/SINGULARITYENV_' $PWD/run_modularized_executable.sh
 else 
-   sed -i 's/SINGULARITYENV_/APPTAINERENV_/g' $PWD/run_modularized_executable.sh
+   sed -i 's/SINGULARITYENV_/APPTAINERENV_' $PWD/run_modularized_executable.sh
 fi
 #replace the paths in the script
 sed -i "s|IMAGE|$SINGULARITY_CONTAINER|g" $PWD/run_modularized_executable.sh
@@ -34,7 +34,7 @@ do
  
   EXEC_PATH="$pathdir:$PATH"
   sed -i "s|EXEC_PATH|$EXEC_PATH|g" $fullfile
-  sed -i "s|BASEFILE|HOMEgfs/\.$basefile|g" $fullfile
+  sed -i "s|BASEFILE|$pathdir/\.$basefile|g" $fullfile
   chmod +x $fullfile
 done
 

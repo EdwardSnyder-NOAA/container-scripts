@@ -6,6 +6,5 @@ export CONTAINERENV_FI_PROVIDER_PATH=FI_PATH
 export SINGULARITY_SHELL=/bin/bash
 cmd=BASEFILE
 arg="$@"
-echo running: singularity exec "${img}" $cmd $arg
 singularity exec -e BINDDIRS "${img}" $cmd $arg
 
