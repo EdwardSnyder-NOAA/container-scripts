@@ -43,10 +43,10 @@ mkdir -p $exec_dir
 script_dir=$(dirname "$0")
 cp $script_dir/run_modularized_executable.sh $exec_dir
 #replace CONTAINERENV_ with SINGULARITY/APPTAINER
-if [[ -z `singularity help | grep apptainer` ]]; then 
-   sed -i 's/CONTAINERENV_/SINGULARITYENV_' $PWD/run_modularized_executable.sh
+if [[ -z $(env | grep APPTAINER) ]]; then 
+   sed -i 's/CONTAINERENV_/SINGULARITYENV_/g' $PWD/run_modularized_executable.sh
 else 
-   sed -i 's/CONTAINERENV_/APPTAINERENV_' $PWD/run_modularized_executable.sh
+   sed -i 's/CONTAINERENV_/APPTAINERENV_/g' $PWD/run_modularized_executable.sh
 fi
 #replace the paths in the script
 sed -i "s|IMAGE|$SINGULARITY_CONTAINER|g" $exec_dir/run_modularized_executable.sh
