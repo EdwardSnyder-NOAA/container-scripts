@@ -210,6 +210,9 @@ if __name__ == "__main__":
     # get the origin module path for the mpi module
     command = '/usr/bin/grep -R MODULEPATH ./modulefiles/'+compiler_type+' | awk -F \'"\' \'{print $4}\' | head -n 1'
     mpi_stack_path = os.popen(command).read().strip()
+    # hack to get this working
+    mpi_stack_path = re.sub("fms-2024.01","unified-env",mpi_stack_path)
+
     print("using this modulepath to grep",mpi_stack_path)
     # replace the original path with the new path on the host system
     parts = mpi_stack_path.split('/')
@@ -217,6 +220,7 @@ if __name__ == "__main__":
     parts[:modulefiles_index + 1] = [args.output_dir]
     new_path = '/'.join(parts)
     command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type+" | xargs sed -i 's|"+mpi_stack_path+"|"+new_path+"|g'"
+    print("running this command for modulepath ",command)
     os.system(command)
 
     #set some basic paths inside the container that also include the location of ifort, icc, and icpc
