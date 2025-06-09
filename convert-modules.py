@@ -99,11 +99,11 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
            # create the same directory on the local host
            host_root_dir=os.path.abspath(os.path.join(bindir, "../.."))
            container_root_dir=os.path.abspath(os.path.join(containerdir, ".."))
-           command="singularity exec "+args.img+" mkdir -p "+bindir
+           command="singularity exec -B "+basepath+" "+args.img+" mkdir -p "+bindir
            print(command)
            os.system(command)
            # copy in all the files from the container to the host
-           command = "singularity exec "+args.img+" cp -r "+container_root_dir+" "+host_root_dir
+           command = "singularity exec -B "+basepath+" "+args.img+" cp -r "+container_root_dir+" "+host_root_dir
            print(command)
            os.system(command)
            print("container bindir is ",containerdir)
