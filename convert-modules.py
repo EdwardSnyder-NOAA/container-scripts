@@ -172,12 +172,41 @@ if __name__ == "__main__":
     command = "dirname $PWD | awk -F'/' '{print $2}'"
     basepath = "/"+os.popen(command).read().strip()+" "
 
+    # TODO: switch to this below for these variables
+    # If missing compilers it will return and empty string ''
+    # Check if host compilers are loaded
+    #command = os.system("/usr/bin/which icx")
+    icx_loc = os.popen("/usr/bin/which icx").read().strip()
+    #command = os.system("/usr/bin/which icpx")
+    icpx_loc = os.popen("/usr/bin/which icpx").read().strip()
+    #command = os.system("/usr/bin/which ifort")
+    ifort_loc = os.popen("/usr/bin/which ifort").read().strip()
 
+    compiler_list = [icx_loc,icpx_loc,ifort_loc]
+    #if any(item != 0 for item in [icx_loc,icpx_loc,ifort_loc]):
+    if any(len(item) == 0 for item in compiler_list):
+        print("Missing compilers. Please load them before running this script!")
+        exit(1)
+
+    i_mpi_root = os.getenv('I_MPI_ROOT')
+    # Check is MPI variable exists
+    if i_mpi_root is None:
+        print("Missing I_MPI_ROOT variable! Exiting!")
+        exit(1)
+   
+    compilers_base_list = []
+    # Get compilers base path(s)
+    for path in [icx_loc,icpx_loc,ifort_loc]:
+        base_path = os.path.dirname(os.path.abspath(path))
+        if base_path not in compilers_base_list:
+            compilers_base_list.append(base_path)
+
+    compilers_base_string = ":".join(compilers_base_list)   
     #get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
     # copy the all the modulefiles out of the container image
-    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
+  #TODO  command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
     print(command)
     os.system(command)
 
@@ -192,20 +221,25 @@ if __name__ == "__main__":
     os.system("/usr/bin/grep -R setenv modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq > .envs")
     os.system("/usr/bin/grep -R _path modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq >> .envs")
     os.system("sed -i '/MODULEPATH/d' .envs")
-    # walk through all the files and change variables to contain APPTAINERENV_ or SINGULARITYENV_
-    copy_and_modify_lua_files(args.output_dir, ".envs", compiler_type)
+# walk through all the files and change variables to contain APPTAINERENV_ or SINGULARITYENV_
+  #  copy_and_modify_lua_files(args.output_dir, ".envs", compiler_type)
 
     # get the original module path from the lua file
     command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
-    spack_stack_path = os.popen(command).read().strip()
-
-    parts = spack_stack_path.split('/')
-    modulefiles_index = parts.index("modulefiles")
-    parts[:modulefiles_index + 1] = [args.output_dir]
-    new_path = '/'.join(parts)
-   
-    command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+spack_stack_path+"|"+new_path+"|g'"
-    os.system(command)
+    # Split if we have more than one spack-stack location
+    #print(command)
+    #exit(1)
+    spack_stack_path = os.popen(command).read().strip().split("\n")
+    # Loop through list
+    for ss_path in spack_stack_path:
+        print(ss_path)
+        parts = ss_path.split('/')
+        modulefiles_index = parts.index("modulefiles")
+        parts[:modulefiles_index + 1] = [args.output_dir]
+        new_path = '/'.join(parts)
+        print(f"new_path: {new_path}")
+        command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+ss_path+"|"+new_path+"|g'"
+        os.system(command)
 
     # get the origin module path for the mpi module
     command = '/usr/bin/grep -R MODULEPATH ./modulefiles/'+compiler_type+' | awk -F \'"\' \'{print $4}\' | head -n 1'
@@ -219,26 +253,76 @@ if __name__ == "__main__":
     modulefiles_index = parts.index("modulefiles")
     parts[:modulefiles_index + 1] = [args.output_dir]
     new_path = '/'.join(parts)
+    # This updates the modulefile location for the openmpi compiler lua file
     command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type+" | xargs sed -i 's|"+mpi_stack_path+"|"+new_path+"|g'"
     print("running this command for modulepath ",command)
     os.system(command)
+    # This cmd gets the variable path
+    #/usr/bin/grep SERIAL_F77 ./modulefiles/Core/stack-oneapi/*.lua | awk -F '"' '{print $4}'
+
+    #for compiler in []:
+    #    comp_name = os.path.basename()
+    #    if comp_name = 'icx':
+    #        LINUX_VAR = 'CC'
 
     #set some basic paths inside the container that also include the location of ifort, icc, and icpc
-    lua_file_path = args.output_dir+"/Core/"+stack_type+"/*.lua"
-    container_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local"
+    #lua_file_path = args.output_dir+"/Core/"+stack_type+"/*.lua"
+    #container_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local"
 
-    command = "/usr/bin/grep ENV_F77 "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
-    container_path = container_path+":"+os.popen(command).read().strip()
-    command = "/usr/bin/grep ENV_CC "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
-    container_path = container_path+":"+os.popen(command).read().strip()
+    #command = "/usr/bin/grep ENV_F77 "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
+    #container_path = container_path+":"+os.popen(command).read().strip()
+    #command = "/usr/bin/grep ENV_CC "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
+    #container_path = container_path+":"+os.popen(command).read().strip()
 
+    #compiler_paths = "{}:{}:{}"
+    # Add host compilers path(s) to PATH variable
+    #for path in compilers_base_list:
+    #    path 
     stack_intel_lua_file = args.output_dir+'/Core/'+stack_type+'/*.lua'
-    command = f"sed -i '/prereq/a setenv(\"{env_regex}PATH\",\""+container_path+"\")' "+stack_intel_lua_file
+    env_regex = "APPTAINERENV_"
+    command = f"sed -i '/prereq/a prepend(\"{env_regex}I_MPI_ROOT\",\""+i_mpi_root+"\")' "+stack_intel_lua_file
+    os.system(command)
+    command = f"sed -i '/prereq/a setenv(\"{env_regex}PATH\",\""+compilers_base_string+"\")' "+stack_intel_lua_file
     os.system(command)
 
-    # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
-    command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
+    #print(stack_intel_lua_file)
+    #exit(0)
+    # Update compilers to host
+    for compiler in compiler_list:
+        comp_name = os.path.basename(compiler)
+        if comp_name == 'ifort':
+            env_name = ['F77', 'FC']
+        elif comp_name == 'icpx':
+            env_name = ['CXX']
+        elif comp_name == 'icx':
+            env_name = ['CC']
+
+        for env in env_name:
+            command = '/usr/bin/grep -R SERIAL_'+env+' '+stack_intel_lua_file+' | awk -F \'"\' \'{print $4}\''
+            print(command)
+            #exit(1)
+        #    command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
+            container_path = os.popen(command).read().strip()
+            command = "sed -i 's|"+container_path+"|"+compiler+"|g' "+stack_intel_lua_file
+            os.system(command)
+    
+    # Update library paths
+    command = '/usr/bin/grep -R LIBRARY_PATH '+stack_intel_lua_file+' | awk -F \'"\' \'{print $4}\''
+    lib_path=os.popen(command).read().strip()
+    host_lib_path = os.getenv('LIBRARY_PATH')
+    command = "sed -i 's|"+lib_path+"|"+host_lib_path+"|g' "+stack_intel_lua_file
     os.system(command)
+
+    command = '/usr/bin/grep -R LD_LIBRARY_PATH '+stack_intel_lua_file+' | awk -F \'"\' \'{print $4}\''
+    ld_lib_path=os.popen(command).read().strip()
+    host_ld_lib_path = os.getenv('LD_LIBRARY_PATH')
+    command = "sed -i 's|"+ld_lib_path+"|"+host_ld_lib_path+"|g' "+stack_intel_lua_file
+    os.system(command)
+    print(stack_intel_lua_file)
+    exit(1)
+    # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
+    #command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
+    #os.system(command)
 
     #set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
     #add img to the stack-intel/oneapi module as well
