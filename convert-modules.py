@@ -206,9 +206,9 @@ if __name__ == "__main__":
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
     # copy the all the modulefiles out of the container image
-  #TODO  command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
-    print(command)
-    os.system(command)
+    #TODO command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
+    #TODO print(command)
+    #TODO os.system(command)
 
     # get the stack type (intel v oneapi)
     stack_type=os.popen("ls ./modulefiles/Core").read().strip()
@@ -244,6 +244,7 @@ if __name__ == "__main__":
     # get the origin module path for the mpi module
     command = '/usr/bin/grep -R MODULEPATH ./modulefiles/'+compiler_type+' | awk -F \'"\' \'{print $4}\' | head -n 1'
     mpi_stack_path = os.popen(command).read().strip()
+    print(mpi_stack_path)
     # hack to get this working
     mpi_stack_path = re.sub("fms-2024.01","unified-env",mpi_stack_path)
 
@@ -254,9 +255,42 @@ if __name__ == "__main__":
     parts[:modulefiles_index + 1] = [args.output_dir]
     new_path = '/'.join(parts)
     # This updates the modulefile location for the openmpi compiler lua file
-    command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type+" | xargs sed -i 's|"+mpi_stack_path+"|"+new_path+"|g'"
-    print("running this command for modulepath ",command)
+    command = "/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type
+    #print(command)
+    stack_oneapi_lua_file = os.popen(command).read().strip()
+    #print(stack_oneapi_lua_file)
+    #exit(1)
+    for compiler in compiler_list:
+        comp_name = os.path.basename(compiler)
+        if comp_name == 'ifort':
+            env_name = ['F77','F90','FC']
+        elif comp_name == 'icpx':
+            env_name = ['CXX']
+        elif comp_name == 'icx':
+            env_name = ['CC']
+
+        for env in env_name:
+            command = '/usr/bin/grep -R I_MPI_'+env+' '+stack_oneapi_lua_file+' | awk -F \'"\' \'{print $4}\''
+            #print(command)
+            #exit(1)
+        #    command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
+            container_path = os.popen(command).read().strip()
+            command = "sed -i 's|"+container_path+"|"+compiler+"|g' "+stack_oneapi_lua_file
+            os.system(command)
+            
+    command ="sed -i 's|"+mpi_stack_path+"|"+new_path+"|g' " + stack_oneapi_lua_file
+    #print("running this command for modulepath ",command)
     os.system(command)
+
+    command = '/usr/bin/grep -R intel_oneapi_mpi_ROOT '+stack_oneapi_lua_file+' | awk -F \'"\' \'{print $4}\''
+    mpi_root=os.popen(command).read().strip()
+    host_mpi_root = os.getenv('INTEL_ONEAPI_MPI_ROOT')
+    # TODO: ensure it exists nefpre?
+    command = "sed -i 's|"+mpi_root+"|"+host_mpi_root+"|g' "+stack_oneapi_lua_file
+    os.system(command)
+    print(stack_oneapi_lua_file)
+    exit(1)
+
     # This cmd gets the variable path
     #/usr/bin/grep SERIAL_F77 ./modulefiles/Core/stack-oneapi/*.lua | awk -F '"' '{print $4}'
 
