@@ -172,43 +172,41 @@ if __name__ == "__main__":
     command = "dirname $PWD | awk -F'/' '{print $2}'"
     basepath = "/"+os.popen(command).read().strip()+" "
 
-    # TODO: switch to this below for these variables
-    # If missing compilers it will return and empty string ''
     # Check if host compilers are loaded
-    #command = os.system("/usr/bin/which icx")
     icx_loc = os.popen("/usr/bin/which icx").read().strip()
-    #command = os.system("/usr/bin/which icpx")
     icpx_loc = os.popen("/usr/bin/which icpx").read().strip()
-    #command = os.system("/usr/bin/which ifort")
     ifort_loc = os.popen("/usr/bin/which ifort").read().strip()
 
     compiler_list = [icx_loc,icpx_loc,ifort_loc]
-    #if any(item != 0 for item in [icx_loc,icpx_loc,ifort_loc]):
     if any(len(item) == 0 for item in compiler_list):
         print("Missing compilers. Please load them before running this script!")
         exit(1)
 
-    i_mpi_root = os.getenv('I_MPI_ROOT')
     # Check is MPI variable exists
+    i_mpi_root = os.getenv('I_MPI_ROOT')
     if i_mpi_root is None:
         print("Missing I_MPI_ROOT variable! Exiting!")
         exit(1)
-   
+
     compilers_base_list = []
+    compilers_top_dir = [i_mpi_root.split("/")[1]]
     # Get compilers base path(s)
     for path in [icx_loc,icpx_loc,ifort_loc]:
         base_path = os.path.dirname(os.path.abspath(path))
+        base_dir = base_path.split("/")[1] 
         if base_path not in compilers_base_list:
             compilers_base_list.append(base_path)
+        if base_dir not in compilers_top_dir:
+            compilers_top_dir.append(base_dir)
 
     compilers_base_string = ":".join(compilers_base_list)   
     #get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
     # copy the all the modulefiles out of the container image
-    #TODO command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
-    #TODO print(command)
-    #TODO os.system(command)
+    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
+    print(command)
+    os.system(command)
 
     # get the stack type (intel v oneapi)
     stack_type=os.popen("ls ./modulefiles/Core").read().strip()
@@ -221,23 +219,21 @@ if __name__ == "__main__":
     os.system("/usr/bin/grep -R setenv modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq > .envs")
     os.system("/usr/bin/grep -R _path modulefiles/* | awk -F '\"' '{print $2}' | sort | uniq >> .envs")
     os.system("sed -i '/MODULEPATH/d' .envs")
-# walk through all the files and change variables to contain APPTAINERENV_ or SINGULARITYENV_
-  #  copy_and_modify_lua_files(args.output_dir, ".envs", compiler_type)
+    # walk through all the files and change variables to contain APPTAINERENV_ or SINGULARITYENV_
+    copy_and_modify_lua_files(args.output_dir, ".envs", compiler_type)
 
     # get the original module path from the lua file
     command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
     # Split if we have more than one spack-stack location
-    #print(command)
-    #exit(1)
     spack_stack_path = os.popen(command).read().strip().split("\n")
     # Loop through list
     for ss_path in spack_stack_path:
-        print(ss_path)
+        #print(ss_path)
         parts = ss_path.split('/')
         modulefiles_index = parts.index("modulefiles")
         parts[:modulefiles_index + 1] = [args.output_dir]
         new_path = '/'.join(parts)
-        print(f"new_path: {new_path}")
+        #print(f"new_path: {new_path}")
         command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+ss_path+"|"+new_path+"|g'"
         os.system(command)
 
@@ -254,12 +250,11 @@ if __name__ == "__main__":
     modulefiles_index = parts.index("modulefiles")
     parts[:modulefiles_index + 1] = [args.output_dir]
     new_path = '/'.join(parts)
-    # This updates the modulefile location for the openmpi compiler lua file
+    
+    # Update to host compilers in openmpi compiler lua file
     command = "/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/"+compiler_type
-    #print(command)
     stack_oneapi_lua_file = os.popen(command).read().strip()
-    #print(stack_oneapi_lua_file)
-    #exit(1)
+    
     for compiler in compiler_list:
         comp_name = os.path.basename(compiler)
         if comp_name == 'ifort':
@@ -271,57 +266,30 @@ if __name__ == "__main__":
 
         for env in env_name:
             command = '/usr/bin/grep -R I_MPI_'+env+' '+stack_oneapi_lua_file+' | awk -F \'"\' \'{print $4}\''
-            #print(command)
-            #exit(1)
-        #    command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
             container_path = os.popen(command).read().strip()
             command = "sed -i 's|"+container_path+"|"+compiler+"|g' "+stack_oneapi_lua_file
             os.system(command)
             
     command ="sed -i 's|"+mpi_stack_path+"|"+new_path+"|g' " + stack_oneapi_lua_file
-    #print("running this command for modulepath ",command)
+    print("running this command for modulepath ",command)
     os.system(command)
 
+    # Update intel oneapi mpi root variable to host
     command = '/usr/bin/grep -R intel_oneapi_mpi_ROOT '+stack_oneapi_lua_file+' | awk -F \'"\' \'{print $4}\''
     mpi_root=os.popen(command).read().strip()
     host_mpi_root = os.getenv('INTEL_ONEAPI_MPI_ROOT')
-    # TODO: ensure it exists nefpre?
     command = "sed -i 's|"+mpi_root+"|"+host_mpi_root+"|g' "+stack_oneapi_lua_file
     os.system(command)
-    print(stack_oneapi_lua_file)
-    exit(1)
 
-    # This cmd gets the variable path
-    #/usr/bin/grep SERIAL_F77 ./modulefiles/Core/stack-oneapi/*.lua | awk -F '"' '{print $4}'
-
-    #for compiler in []:
-    #    comp_name = os.path.basename()
-    #    if comp_name = 'icx':
-    #        LINUX_VAR = 'CC'
-
-    #set some basic paths inside the container that also include the location of ifort, icc, and icpc
-    #lua_file_path = args.output_dir+"/Core/"+stack_type+"/*.lua"
-    #container_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local"
-
-    #command = "/usr/bin/grep ENV_F77 "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
-    #container_path = container_path+":"+os.popen(command).read().strip()
-    #command = "/usr/bin/grep ENV_CC "+lua_file_path+" | awk -F '\"' '{print $4}' | xargs dirname"
-    #container_path = container_path+":"+os.popen(command).read().strip()
-
-    #compiler_paths = "{}:{}:{}"
-    # Add host compilers path(s) to PATH variable
-    #for path in compilers_base_list:
-    #    path 
+    # Set PATH and I_MPI_ROOT variables to host compilers in Core stack lua file
     stack_intel_lua_file = args.output_dir+'/Core/'+stack_type+'/*.lua'
-    env_regex = "APPTAINERENV_"
-    command = f"sed -i '/prereq/a prepend(\"{env_regex}I_MPI_ROOT\",\""+i_mpi_root+"\")' "+stack_intel_lua_file
+    #env_regex = "APPTAINERENV_"
+    command = f"sed -i '/prereq/a prepend_path(\"{env_regex}I_MPI_ROOT\",\""+i_mpi_root+"\")' "+stack_intel_lua_file
     os.system(command)
-    command = f"sed -i '/prereq/a setenv(\"{env_regex}PATH\",\""+compilers_base_string+"\")' "+stack_intel_lua_file
+    command = f"sed -i '/prereq/a setenv(\"{env_regex}PATH\",\""+compilers_base_string+":"+i_mpi_root+"/bin\")' "+stack_intel_lua_file
     os.system(command)
 
-    #print(stack_intel_lua_file)
-    #exit(0)
-    # Update compilers to host
+    # Update compilers to host in Core stack lua file
     for compiler in compiler_list:
         comp_name = os.path.basename(compiler)
         if comp_name == 'ifort':
@@ -333,14 +301,11 @@ if __name__ == "__main__":
 
         for env in env_name:
             command = '/usr/bin/grep -R SERIAL_'+env+' '+stack_intel_lua_file+' | awk -F \'"\' \'{print $4}\''
-            print(command)
-            #exit(1)
-        #    command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
             container_path = os.popen(command).read().strip()
             command = "sed -i 's|"+container_path+"|"+compiler+"|g' "+stack_intel_lua_file
             os.system(command)
     
-    # Update library paths
+    # Update library paths to host library
     command = '/usr/bin/grep -R LIBRARY_PATH '+stack_intel_lua_file+' | awk -F \'"\' \'{print $4}\''
     lib_path=os.popen(command).read().strip()
     host_lib_path = os.getenv('LIBRARY_PATH')
@@ -352,9 +317,9 @@ if __name__ == "__main__":
     host_ld_lib_path = os.getenv('LD_LIBRARY_PATH')
     command = "sed -i 's|"+ld_lib_path+"|"+host_ld_lib_path+"|g' "+stack_intel_lua_file
     os.system(command)
-    print(stack_intel_lua_file)
-    exit(1)
+    
     # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
+    # NOTE: depends_on works now but leaving in if it is needed on other T1 platforms
     #command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
     #os.system(command)
 
@@ -369,16 +334,32 @@ if __name__ == "__main__":
     sed_command = f'sed -i \'/ENV_PATH/a {new_line}\' {stack_intel_lua_file}'
     os.system(sed_command)
 
+    # Add compiler and mpi base path to gen-builds, so that they can be added to the build tool wrappers
+    dir_format=" -B /{0}"
+    comp_top_dirs=""
+    for top_dir in compilers_top_dir:
+        comp_top_dirs = comp_top_dirs + dir_format.format(top_dir)
+
+    # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
+    command = "singularity exec -B "+basepath + comp_top_dirs +" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
+    os.system(command)
+    os.system("rm -rf ./modulefiles")
+    os.system("rm ./make-external")
+    # Fix build tools
+    fi_provider = os.getenv('FI_PROVIDER_PATH')
+    command = "sed -i 's|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="+fi_provider+"|g' "+local_path+"/*"
+    os.system(command)
+
     #put make-external in the bin path
     command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external "+local_path
     os.system(command)
 
-    # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
-    command = "singularity exec -B "+basepath+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
+    # Update bind dirs and add FI PROVIDER to script
+    command = "sed -i 's| -B|"+comp_top_dirs+" -B|g' "+local_path+"/make-external"
     os.system(command)
-    os.system("rm -rf ./modulefiles")
-    os.system("rm ./make-external")
-    
+    command = "sed -i 's|fi_provider_path=\(.*\)|fi_provider_path="+fi_provider+"|g' "+local_path+"/make-external"
+    os.system(command)
+
     command = "echo $(find "+args.output_dir+" -iname netcdf-c)/*"
     luafile = os.popen(command).read().strip()
     os.system("echo >> "+luafile)
