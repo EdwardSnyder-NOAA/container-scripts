@@ -188,6 +188,7 @@ if __name__ == "__main__":
         print("Missing I_MPI_ROOT variable! Exiting!")
         exit(1)
 
+    # Create compiler base path list & compiler top dir list
     compilers_base_list = []
     compilers_top_dir = [i_mpi_root.split("/")[1]]
     # Get compilers base path(s)
@@ -198,8 +199,8 @@ if __name__ == "__main__":
             compilers_base_list.append(base_path)
         if base_dir not in compilers_top_dir:
             compilers_top_dir.append(base_dir)
-
     compilers_base_string = ":".join(compilers_base_list)   
+
     #get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
