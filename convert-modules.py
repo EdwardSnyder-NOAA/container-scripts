@@ -79,6 +79,11 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
     local_path = args.output_dir+"/bin"
     command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external ."
     os.system(command)
+    # Update bind dirs and add FI PROVIDER to script
+    command = "sed -i 's| -B|"+comp_top_dirs+" -B|g' make-external"
+    os.system(command)
+    command = "sed -i 's|fi_provider_path=\(.*\)|fi_provider_path="+fi_provider+"|g' make-external"
+    os.system(command)
     for line in content.split('\n'):
     # check to see if the path is being set in the modulefile
         pattern = rf'"{env_regex}PATH"'
@@ -182,8 +187,9 @@ if __name__ == "__main__":
         print("Missing compilers. Please load them before running this script!")
         exit(1)
 
-    # Check is MPI variable exists
+    # Check is MPI variables exists
     i_mpi_root = os.getenv('I_MPI_ROOT')
+    fi_provider = os.getenv('FI_PROVIDER_PATH')
     if i_mpi_root is None:
         print("Missing I_MPI_ROOT variable! Exiting!")
         exit(1)
@@ -200,6 +206,12 @@ if __name__ == "__main__":
         if base_dir not in compilers_top_dir:
             compilers_top_dir.append(base_dir)
     compilers_base_string = ":".join(compilers_base_list)   
+
+    # Create compiler host dirs, so that they can be added to the make-external wrappers
+    dir_format=" -B /{0}"
+    comp_top_dirs=""
+    for top_dir in compilers_top_dir:
+        comp_top_dirs = comp_top_dirs + dir_format.format(top_dir)
 
     #get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
@@ -321,7 +333,7 @@ if __name__ == "__main__":
     
     # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
     # NOTE: depends_on works now but leaving in if it is needed on other T1 platforms
-    #command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
+    #command = "/usr/bin/grep -R -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
     #os.system(command)
 
     #set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
@@ -336,29 +348,17 @@ if __name__ == "__main__":
     os.system(sed_command)
 
     # Add compiler and mpi base path to gen-builds, so that they can be added to the build tool wrappers
-    dir_format=" -B /{0}"
-    comp_top_dirs=""
-    for top_dir in compilers_top_dir:
-        comp_top_dirs = comp_top_dirs + dir_format.format(top_dir)
-
     # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
     command = "singularity exec -B "+basepath + comp_top_dirs +" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
     os.system(command)
     os.system("rm -rf ./modulefiles")
-    os.system("rm ./make-external")
+    #os.system("rm ./make-external")
     # Fix build tools
-    fi_provider = os.getenv('FI_PROVIDER_PATH')
     command = "sed -i 's|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="+fi_provider+"|g' "+local_path+"/*"
     os.system(command)
 
     #put make-external in the bin path
-    command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external "+local_path
-    os.system(command)
-
-    # Update bind dirs and add FI PROVIDER to script
-    command = "sed -i 's| -B|"+comp_top_dirs+" -B|g' "+local_path+"/make-external"
-    os.system(command)
-    command = "sed -i 's|fi_provider_path=\(.*\)|fi_provider_path="+fi_provider+"|g' "+local_path+"/make-external"
+    command = "mv make-external "+local_path
     os.system(command)
 
     command = "echo $(find "+args.output_dir+" -iname netcdf-c)/*"
