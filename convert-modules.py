@@ -82,8 +82,8 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
     # Update bind dirs and add FI PROVIDER to script
     command = "sed -i 's| -B|"+comp_top_dirs+" -B|g' make-external"
     os.system(command)
-    #command = "sed -i 's|fi_provider_path=\(.*\)|fi_provider_path="+fi_provider+"|g' make-external"
-    #os.system(command)
+    command = "sed -i 's|fi_provider_path=\(.*\)|fi_provider_path="+fi_provider+"|g' make-external"
+    os.system(command)
     for line in content.split('\n'):
     # check to see if the path is being set in the modulefile
         pattern = rf'"{env_regex}PATH"'
@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     # Check is MPI variables exists
     i_mpi_root = os.getenv('I_MPI_ROOT')
-    #fi_provider = os.getenv('FI_PROVIDER_PATH')
+    fi_provider = os.getenv('FI_PROVIDER_PATH')
     if i_mpi_root is None:
         print("Missing I_MPI_ROOT variable! Exiting!")
         exit(1)
@@ -354,8 +354,8 @@ if __name__ == "__main__":
     os.system("rm -rf ./modulefiles")
     #os.system("rm ./make-external")
     # Fix build tools
-    #command = "sed -i 's|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="+fi_provider+"|g' "+local_path+"/*"
-    #os.system(command)
+    command = "sed -i 's|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="+fi_provider+"|g' "+local_path+"/*"
+    os.system(command)
 
     #put make-external in the bin path
     command = "mv make-external "+local_path

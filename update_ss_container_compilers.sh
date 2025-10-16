@@ -60,6 +60,8 @@ if [[ -z "$intel_sandbox" ]]; then
     new_intel_oneapi_mpi_root="${INTEL_ONEAPI_MPI_ROOT}"
     new_path="${new_i_mpi_root}/bin":$(dirname "$new_icx")
 
+    new_fi_provider="${FI_PROVIDER_PATH}"
+
 else
     # Verify if intel sandbox location exists
     intel_sandbox_rp=$(realpath "$intel_sandbox")
@@ -79,6 +81,8 @@ else
     new_i_mpi_root="$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13"
     new_intel_oneapi_mpi_root="$intel_sandbox_rp/opt/intel/oneapi"
     new_path="${new_i_mpi_root}/bin":$(dirname "$new_icx")
+
+    new_fi_provider="/opt/intel/oneapi/redist/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
 fi
 
 # Ensure that the compilers are MPI are set before running
@@ -206,7 +210,7 @@ echo "Updating bind dir in wrapper scripts"
 for wrap in "${wrapper_array[@]}"; do
 
     # Update FI PROVIDER PATH
-    #sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="${FI_PROVIDER_PATH}"|g" $wrap
+    sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="$new_fi_provider"|g" $wrap
 
     #fp=$(realpath $wrap)
     #top_dir=$(echo $wrap | awk -F'/' '{print $2}')

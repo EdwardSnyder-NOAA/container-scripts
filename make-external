@@ -2,7 +2,7 @@
 #set -x
 #export img=/scratch1/NCEPDEV/nems/Mark.Potts/container-stage/ubuntu22.04-intel-ufs-env-v1.6.0.img
 export SINGULARITY_SHELL=/bin/bash
-#export fi_provider_path=FI_PATH
+export fi_provider_path=FI_PATH
 arg="$@"
 if [[ -z $img ]]; then
   echo "export img to point to the container image you are using"
@@ -14,7 +14,7 @@ for efile in $arg;
       if [[ $binfile =~ "ELF" ]]; then 
          echo $efile; 
          singularity exec -e -B /$bindir "${img}" /opt/container-scripts/dot-externalize.sh $efile
-         #echo "Add host FI_PROVIDER_PATH"
-         #sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH=${fi_provider_path}|g" $efile
+         echo "Add host FI_PROVIDER_PATH"
+         sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH=${fi_provider_path}|g" $efile
       fi; 
 done
