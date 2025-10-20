@@ -284,12 +284,11 @@ if __name__ == "__main__":
     elif args.sandbox_compilers is not None:
         cmd_ln_arg = f"-s {args.sandbox_compilers}"
     else:
-        print("Using container compilers. DONE")
+        print("Using container compilers.\nDONE")
         exit(1)
 
     # Update compilers info in spack-stack lua files
-    #TODO: command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/update_ss_container_compilers.sh ."
+    command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/update_ss_container_compilers.sh ."
     os.system(command)
     command = f"./update_ss_container_compilers.sh -o {args.output_dir} {cmd_ln_arg}"
     os.system(command)
-    print("DONE")
