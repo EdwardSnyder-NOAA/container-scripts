@@ -12,21 +12,21 @@ Help()
    echo 
    echo "This script updates the compilers in the spack-stack container."
    echo
-   echo "Syntax: ./update_ss_container_compilers.sh [-h|-i <intel sandbox location>|-s <container spack-stack locaton>]"
+   echo "Syntax: ./update_ss_container_compilers.sh [-h] -o <container spack-stack locaton> [-s <intel sandbox location>]"
    echo "options:"
    echo "-h     Print this Help."
-   echo "-i     (optional) location of intel sandbox in the format of /path/to/intel-sandbox"
-   echo "-s     (required) location of container spack-stack in format of /path/to/modulefiles/spack-stack-#.#.#"
+   echo "-o     (required) location of container spack-stack in format of /path/to/modulefiles/spack-stack-#.#.#"
+   echo "-s     (optional) location of intel sandbox in the format of /path/to/intel-sandbox"
    echo
 }
 
-while getopts ":hi:s:" flag;
+while getopts ":hs:o:" flag;
 do 
     case "${flag}" in
     h) Help
         exit ;;
-    i) intel_sandbox="${OPTARG#=}" ;;
-    s) ss_location="${OPTARG#=}" ;;
+    s) intel_sandbox="${OPTARG#=}" ;;
+    o) ss_location="${OPTARG#=}" ;;
     #:) echo "Missing argument for -s" >&2
     #   exit 1 ;;
    \?) echo "Invalid option. Exiting!"
@@ -82,23 +82,10 @@ else
     new_intel_oneapi_mpi_root="$intel_sandbox_rp/opt/intel/oneapi"
     new_path="${new_i_mpi_root}/bin":$(dirname "$new_icx")
 
-    new_fi_provider="/opt/intel/oneapi/redist/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
+    new_fi_provider="$intel_sandbox_rp/opt/intel/oneapi/redist/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
 fi
 
 # Ensure that the compilers are MPI are set before running
-echo $new_ifort 
-echo $new_icx
-echo $new_icpx
-echo $new_lib
-echo $new_ld_lib
-echo $new_i_mpi_root
-echo $new_intel_oneapi_mpi_root
-echo $new_path
-#exit 1
-#new_ifort=$(which ifort)
-#new_icx=$(which icx)
-#new_icpx=$(which icpx)
-
 if [[ -z "$new_ifort" || -z "$new_icx" || -z "$new_icpx" ]]; then
     echo "Please load the compilers you want in your spack-stack before running this script!"
     exit 1
@@ -164,16 +151,23 @@ done
 echo "Setting various variables"
 ss_path=$(/usr/bin/grep -r ENV_PATH "$comp_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_path"|"$new_path"|g" $comp_lua_file
-
 ss_i_mpi_root=$(/usr/bin/grep -r I_MPI_ROOT "$comp_lua_file" | awk -F '"' '{print $4}')
-sed -i "s|"$ss_i_mpi_root"|"$new_i_mpi_root"|g" $comp_lua_file
-
+# Add I MPI ROOT if need be
+if [[ -z $ss_i_mpi_root ]]; then
+    # find env type
+    if ! grep -qr "APPTAINERENV_" "$comp_lua_file"; then
+        cont_type="SINGULARITYENV_"
+    else
+        cont_type="APPTAINERENV_"
+    fi
+    sed -i "/\prereq/a setenv(\"${cont_type}I_MPI_ROOT\", \"$new_i_mpi_root\")" $comp_lua_file
+else
+    sed -i "s|"$ss_i_mpi_root"|"$new_i_mpi_root"|g" $comp_lua_file
+fi
 ss_lib_path=$(/usr/bin/grep -r ENV_LIBRARY_PATH "$comp_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_lib_path"|"$new_lib"|g" $comp_lua_file
-
 ss_ld_lib_path=$(/usr/bin/grep -r ENV_LD_LIBRARY_PATH "$comp_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_ld_lib_path"|"$new_ld_lib"|g" $comp_lua_file
-
 ss_intel_oneapi_mpi_root=$(/usr/bin/grep -r intel_oneapi_mpi_ROOT "$mpi_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_intel_oneapi_mpi_root"|"$new_intel_oneapi_mpi_root"|g" $mpi_lua_file
 
@@ -197,6 +191,13 @@ for p in $new_i_mpi_root $new_intel_oneapi_mpi_root $new_icx; do
     fi
 done
 
+# Ensure make-external is set to work with external compilers
+# These additional commands add the external FI PROVIDER path to the newly created wrapper scripts by make-external
+if ! grep -qr fi_provider_path $ss_location_rp/bin/make-external; then
+    sed -i '5i\export fi_provider_path=FI_PATH' $ss_location_rp/bin/make-external
+    sed -i '17i\         sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH=$fi_provider_path|g" $efile' $ss_location_rp/bin/make-external
+fi
+
 # Create wrapper array
 echo "Creating array of wrapper scripts"
 base_ss_location=$(dirname $ss_location_rp)
@@ -210,8 +211,11 @@ echo "Updating bind dir in wrapper scripts"
 for wrap in "${wrapper_array[@]}"; do
 
     # Update FI PROVIDER PATH
-    sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="$new_fi_provider"|g" $wrap
-
+    if [[ $(basename $wrap) == "make-external" ]]; then
+        sed -i "s|fi_provider_path=\(.*\)|fi_provider_path="$new_fi_provider"|g" $wrap
+    else
+        sed -i "s|FI_PROVIDER_PATH=\(.*\)|FI_PROVIDER_PATH="$new_fi_provider"|g" $wrap
+    fi
     #fp=$(realpath $wrap)
     #top_dir=$(echo $wrap | awk -F'/' '{print $2}')
     for td in "${top_dir[@]}"; do
