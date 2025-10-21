@@ -199,6 +199,13 @@ if ! grep -qr fi_provider_path $ss_location_rp/bin/make-external; then
 else
     sed -i "s|fi_provider_path=\(.*\)|fi_provider_path="$new_fi_provider"|g" $ss_location_rp/bin/make-external
 fi
+# Add bind dir to make-external
+for td in "${top_dir[@]}"; do
+    if ! grep -qr "B /$td" $ss_location_rp/bin/make-external; then
+        echo "Missing top dir! Add it!"
+        sed -i "s| -B| -B /$top_dir -B|1" $ss_location_rp/bin/make-external
+    fi
+done
 
 # Create wrapper array
 echo "Creating array of wrapper scripts"
