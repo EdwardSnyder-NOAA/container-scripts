@@ -82,7 +82,7 @@ else
     new_intel_oneapi_mpi_root="$intel_sandbox_rp/opt/intel/oneapi"
     new_path="${new_i_mpi_root}/bin":$(dirname "$new_icx")
 
-    new_fi_provider="$intel_sandbox_rp/opt/intel/oneapi/redist/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
+    new_fi_provider="$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
 fi
 
 # Ensure that the compilers are MPI are set before running
