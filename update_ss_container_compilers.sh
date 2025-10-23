@@ -170,6 +170,8 @@ ss_ld_lib_path=$(/usr/bin/grep -r ENV_LD_LIBRARY_PATH "$comp_lua_file" | awk -F 
 sed -i "s|"$ss_ld_lib_path"|"$new_ld_lib"|g" $comp_lua_file
 ss_intel_oneapi_mpi_root=$(/usr/bin/grep -r intel_oneapi_mpi_ROOT "$mpi_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_intel_oneapi_mpi_root"|"$new_intel_oneapi_mpi_root"|g" $mpi_lua_file
+# Add sandbox mpiexec if using a sandbox
+[[ ! -z "$intel_sandbox" ]] && sed -i "/\ENV_PATH/a prepend_path(\"PATH\", \"${new_i_mpi_root}/bin\")" $comp_lua_file
 
 # Get list of dirs to bind
 echo "Finding dirs to bind to wrapper script"
