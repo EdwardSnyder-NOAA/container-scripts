@@ -10,7 +10,7 @@ fi
 bindir=`pwd | awk -F"/" '{print $2}'`
 imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
 if [[ $bindir == $imgdir ]]; then
-    cmd_dir="-B /$bindir"
+    cmd_dir=" -B /$bindir"
 else
     cmd_dir="-B /$bindir -B /$imgdir"
 fi

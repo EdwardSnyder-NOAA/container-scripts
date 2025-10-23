@@ -205,7 +205,7 @@ fi
 for td in "${top_dir[@]}"; do
     if ! grep -qr "B /$td" $ss_location_rp/bin/make-external; then
         echo "Missing top dir! Add it!"
-        sed -i "s| -B| -B /$top_dir -B|1" $ss_location_rp/bin/make-external
+        sed -i "s| -B| -B /$td -B|g" $ss_location_rp/bin/make-external
     fi
 done
 
