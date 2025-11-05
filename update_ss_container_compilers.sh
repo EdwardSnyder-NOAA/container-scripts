@@ -49,16 +49,17 @@ fi
 if [[ -z "$intel_sandbox" ]]; then
     
     echo "Using host compilers and mpi"
-    new_ifort=$(which mpiifort)
-    new_icx=$(which mpiicx)
-    new_icpx=$(which mpiicpx)
-    
+    new_ifort=$(which ifort)
+    new_icx=$(which icx)
+    new_icpx=$(which icpx)
+    new_mpiifort=$(which mpiifort)
+
     new_lib="${LIBRARY_PATH}"
     new_ld_lib="${LD_LIBRARY_PATH}"
 
     new_i_mpi_root="${I_MPI_ROOT}"
     new_intel_oneapi_mpi_root="${INTEL_ONEAPI_MPI_ROOT}"
-    new_path="${new_i_mpi_root}/bin:$(which ifort | xargs dirname)"
+    new_path="${new_i_mpi_root}/bin:$(dirname "$new_icx")"
 
     new_fi_provider="${FI_PROVIDER_PATH}"
 
@@ -71,17 +72,17 @@ else
     fi
 
     echo "Using Intel sandbox compilers and mpi"
-    new_ifort=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13/bin/mpiifort")
-    new_icx=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13/bin/mpiicx")
-    new_icpx=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13/bin/mpiicpx")
-    new_compiler_dir="$intel_sandbox_rp/opt/intel/oneapi/compiler/2024.2/bin"
+    new_ifort=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/compiler/2024.2/bin/ifort")
+    new_icx=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/compiler/2024.2/bin/icx")
+    new_icpx=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/compiler/2024.2/bin/icpx")
+    new_mpiifort=$(realpath "$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13/bin/mpiifort")
 
     new_lib="/opt/intel/oneapi/redist/opt/mpi/libfabric/lib:/opt/intel/oneapi/redist/lib"
     new_ld_lib="/opt/intel/oneapi/redist/opt/mpi/libfabric/lib:/opt/intel/oneapi/redist/lib"
 
     new_i_mpi_root="$intel_sandbox_rp/opt/intel/oneapi/mpi/2021.13"
     new_intel_oneapi_mpi_root="$intel_sandbox_rp/opt/intel/oneapi"
-    new_path="${new_i_mpi_root}/bin:${new_compiler_dir}"
+    new_path="${new_i_mpi_root}/bin:$(dirname "$new_icx")"
 
     new_fi_provider="/opt/intel/oneapi/redist/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
 fi
@@ -147,6 +148,8 @@ mpi_lua_file=$(/usr/bin/grep -rl MODULEPATH $ss_location_rp/$comp_type)
 for compiler in icx icpx ifort; do
     sed_compilers $compiler "$comp_lua_file" "$mpi_lua_file"
 done
+# Fix for FC var. This helps build the coupled model variants
+sed -i "s|ENV_FC\",\(.*\)|ENV_FC\", "\"${new_mpiifort}"\")|g" $comp_lua_file
 
 # Changes for non-compiler variables
 echo "Setting various variables"
@@ -171,7 +174,7 @@ ss_ld_lib_path=$(/usr/bin/grep -r ENV_LD_LIBRARY_PATH "$comp_lua_file" | awk -F 
 sed -i "s|"$ss_ld_lib_path"|"$new_ld_lib"|g" $comp_lua_file
 #ss_intel_oneapi_mpi_root=$(/usr/bin/grep -r intel_oneapi_mpi_ROOT "$mpi_lua_file" | awk -F '"' '{print $4}')
 #sed -i "s|"$ss_intel_oneapi_mpi_root"|"$new_intel_oneapi_mpi_root"|g" $mpi_lua_file
-sed -i "s|\"intel_oneapi_mpi_ROOT\",\(.*\)|\"intel_oneapi_mpi_ROOT\", \""$new_intel_oneapi_mpi_root"\")|g" $mpi_lua_file
+sed -i "s|intel_oneapi_mpi_ROOT\",\(.*\)|intel_oneapi_mpi_ROOT\", "\"$new_intel_oneapi_mpi_root"\")|g" $mpi_lua_file
 # Add sandbox mpiexec if using a sandbox
 [[ ! -z "$intel_sandbox" ]] && sed -i "/\ENV_PATH/a prepend_path(\"PATH\", \"${new_i_mpi_root}/bin\")" $comp_lua_file
 
