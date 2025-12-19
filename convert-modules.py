@@ -198,7 +198,7 @@ if __name__ == "__main__":
     stack_type=os.popen("ls ./modulefiles/Core").read().strip()
     compiler_type=stack_type.split("-")[1]
 
-    # Copy over gnu and openmpi to the Core dir, if it is the gnu spack-stack
+    # Copy over gnu and openmpi to a newly created dir, if it is the gnu spack-stack
     if compiler_type == "gcc" and spack_stack_env == "ufs-wm-env":
         os.makedirs("modulefiles/container-software/modulefiles")
         command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/modulefiles/gnu modulefiles/container-software/modulefiles"
