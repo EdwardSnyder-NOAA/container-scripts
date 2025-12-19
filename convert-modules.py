@@ -87,6 +87,8 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
         if match:
            if(compiler_type == "intel"):
              new_line = re.sub(r'"([^"]*)\s*(?=intel)', f'"{new_pattern}/', line)
+           elif(compiler_type == "gcc"):
+             new_line = re.sub(r'"([^"]*)\s*(?=gcc)', f'"{new_pattern}/', line)
            else:
              new_line = re.sub(r'"([^"]*)\s*(?=oneapi)', f'"{new_pattern}/', line)
 #          new_line = re.sub(r'"([^"]*)\s*(?=' + re.escape(compiler_type) + ')', f'"{new_pattern}/"', line)
@@ -184,14 +186,25 @@ if __name__ == "__main__":
     #get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
+    # get env name
+    command =  "singularity exec $img ls /opt/spack-stack/"+spack_stack_ver+"/envs/"
+    spack_stack_env = os.popen(command).read().strip()
     # copy the all the modulefiles out of the container image
-    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
+    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/"+spack_stack_env+"/install/modulefiles ."
     print(command)
     os.system(command)
 
-    # get the stack type (intel v oneapi)
+    # get the stack type (intel v oneapi v gcc)
     stack_type=os.popen("ls ./modulefiles/Core").read().strip()
     compiler_type=stack_type.split("-")[1]
+
+    # Copy over gnu and openmpi to the Core dir, if it is the gnu spack-stack
+    if compiler_type == "gcc" and spack_stack_env == "ufs-wm-env":
+        os.makedirs("modulefiles/container-software/modulefiles")
+        command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/modulefiles/gnu modulefiles/container-software/modulefiles"
+        os.system(command)
+        command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/modulefiles/openmpi modulefiles/container-software/modulefiles"
+        os.system(command)
 
 #   command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/"+compiler_type+" ."
 #   os.system(command)
@@ -222,7 +235,8 @@ if __name__ == "__main__":
     command = '/usr/bin/grep -R MODULEPATH ./modulefiles/'+compiler_type+' | awk -F \'"\' \'{print $4}\' | head -n 1'
     mpi_stack_path = os.popen(command).read().strip()
     # hack to get this working
-    mpi_stack_path = re.sub("fms-2024.01","unified-env",mpi_stack_path)
+    if compiler_type == "oneapi" and spack_stack_env == "unified-env":
+        mpi_stack_path = re.sub("fms-2024.01","unified-env",mpi_stack_path)
 
     print("using this modulepath to grep",mpi_stack_path)
     # replace the original path with the new path on the host system
