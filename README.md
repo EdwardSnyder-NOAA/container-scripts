@@ -53,7 +53,7 @@ singularity exec -e   -B /apps -B /work "${img}" $cmd $arg
 ```
 
 # Installing the externalized spack-stack container
-The user has ***two*** choices when it comes to installing the spack-stack container, either use the [host compilers](#using-host-compilers) **or** the [Intel sandbox](#using-intel-sandbox). Both methods use the same initial setup and the externalization of the executables.
+The user has ***two*** choices when it comes to installing the spack-stack container, either use the [host compilers](##using-host-compilers) **or** the [Intel sandbox](##using-intel-sandbox). Both methods use the same initial setup and the externalization of the executables.
 
 ## 1. Set up for all configurations
 1. Obtain the spack-stack container via s3 bucket /place/path/here
