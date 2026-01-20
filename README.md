@@ -53,7 +53,7 @@ singularity exec -e   -B /apps -B /work "${img}" $cmd $arg
 ```
 
 # Installing the externalized spack-stack container
-The user has ***two*** choices when it comes to installing the spack-stack container, either use the [host compilers](#2a.-using-host-compilers) **or** the [Intel sandbox](#2b.-using-intel-sandbox). Both methods use the same initial setup and the externalization of the executables.
+The user has ***two*** choices when it comes to installing the spack-stack container, either use the [host compilers](#2a-using-host-compilers) **or** the [Intel sandbox](#2b-using-intel-sandbox). Both methods use the same initial setup and the externalization of the executables.
 
 ## 1. Set up for all configurations
 1. Obtain the spack-stack container via s3 bucket /place/path/here
@@ -114,7 +114,7 @@ There may be a situation where you need to switch the compilers of the externali
 |/path/to/modulefiles/spack-stack-1.9.2/oneapi/*/*/bin/* |
 
 
-To switch compilers, ensure that the new compilers are pre-loaded either on the [host compilers](#2a.-using-host-compilers) or the [Intel sandbox](#2b.-using-intel-sandbox). Once they are loaded, run the following commands:
+To switch compilers, ensure that the new compilers are pre-loaded either on the [host compilers](#2a-using-host-compilers) or the [Intel sandbox](#2b-using-intel-sandbox). Once they are loaded, run the following commands:
 ```
 cd /path/to/modulefiles
 ./update_ss_container_compilers.sh -o /path/to/modulefiles/spack-stack-1.9.2 [-s <path to Intel sandbox>]
