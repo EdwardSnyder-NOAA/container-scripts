@@ -95,6 +95,13 @@ singularity build --sandbox intel-sandbox docker://noaaepic/intel-hpckit:2024.2.
 ```
 Note: example-dir is the location of a writable directory with disk space available.
 
+After the Intel sandbox is built, run the following to build the externalized spack-stack with the Intel sandbox:
+```
+python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 -s intel-sandbox
+```
+
+#### Switching compilers 
+
 ## Building and running with the externalized spack-stack container
 Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by updating the ```MODULEPATH``` variable in the modulefiles. See the [UFS WM PR](https://github.com/ufs-community/ufs-weather-model/compare/develop...EdwardSnyder-NOAA:ufs-weather-model:container-ss192) for an example of how the modulefiles are being updated. 
 
@@ -104,3 +111,4 @@ make-external /path/to/executable.exe
 make-external /path/to/executables/*
 ```
 Please note that additional modifications are needed to the UFS WM or Applications workflow to incorporate this new method. See this [UFS WM PR](https://github.com/ufs-community/ufs-weather-model/compare/develop...EdwardSnyder-NOAA:ufs-weather-model:container-ss192) for how to use this container with the UFS WM RTs system by updating the ```compile.sh``` file.
+
