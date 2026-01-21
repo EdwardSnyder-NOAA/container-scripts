@@ -54,6 +54,7 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
     
     :param content: str, The Lua file content as a string.
     :param envs_to_modify: list, Environment variable names to be prefixed.
+    :param compiler_type: str, Defines which compiler was used to build the spack-stack.
     :return: str, The modified Lua file content.
     """
 
@@ -85,6 +86,7 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
         match = re.search(pattern,line)
         new_pattern = os.getcwd()
         if match:
+           # fix for spack-stack v1.9.2 container since it has two stack paths
            if(compiler_type == "intel"):
              new_line = re.sub(r'"([^"]*)\s*(?=intel)', f'"{new_pattern}/', line)
            elif(compiler_type == "gcc"):
@@ -130,6 +132,7 @@ def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
     
     :param output_dir: str, The path to the output directory where modified Lua files will be saved.
     :param vars_file: str, The path to the file containing environment variable names.
+    :param compiler_type: str, Defines which compiler was used to build the spack-stack.
     """
     source_dir = "./modulefiles"
     print("running copy and modify")
@@ -137,6 +140,7 @@ def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         
+        # Read contents of the lua file
         for root, _, files in os.walk(source_dir):
             for file in files:
                 if file.endswith(".lua"):
@@ -144,6 +148,7 @@ def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
                     with open(file_path, 'r') as f:
                         content = f.read()
                     
+                    # Call modify_lua_content function
                     modified_content = modify_lua_content(content, read_envs_from_file(vars_file),compiler_type)
                     
                     # Determine the output file path relative to the source directory
@@ -172,9 +177,9 @@ if __name__ == "__main__":
                         help="Path to Intel compilers sandbox")
 
     args = parser.parse_args()
-    #set the img as an environment variable
+    # set the img as an environment variable
     os.environ['img'] = args.img
-    #get the basename of PWD to bind with singularity
+    # get the basename of PWD to bind with singularity
     command = "dirname $PWD | awk -F'/' '{print $2}'"
     basepath = "/"+os.popen(command).read().strip()+" "
 
@@ -183,7 +188,7 @@ if __name__ == "__main__":
         print("Both compiler options are set. Please set one or the other!")
         exit(1)
 
-    #get the spack-stack version
+    # get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
     # get env name
@@ -248,7 +253,7 @@ if __name__ == "__main__":
     print("running this command for modulepath ",command)
     os.system(command)
 
-    #set some basic paths inside the container that also include the location of ifort, icc, and icpc
+    # set some basic paths inside the container that also include the location of ifort, icc, and icpc
     lua_file_path = args.output_dir+"/Core/"+stack_type+"/*.lua"
     container_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local"
 
@@ -265,8 +270,8 @@ if __name__ == "__main__":
     #command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
     #os.system(command)
 
-    #set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
-    #add img to the stack-intel/oneapi module as well
+    # set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
+    # add img to the stack-intel/oneapi module as well
     local_path = args.output_dir+"/bin"
     os.system("mkdir "+local_path)
     new_line = 'prepend_path("PATH","'+local_path+'")'
@@ -276,7 +281,7 @@ if __name__ == "__main__":
     sed_command = f'sed -i \'/ENV_PATH/a {new_line}\' {stack_intel_lua_file}'
     os.system(sed_command)
 
-    #put make-external in the bin path
+    # put make-external in the bin path
     command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external "+local_path
     os.system(command)
 

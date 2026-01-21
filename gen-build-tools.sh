@@ -41,14 +41,18 @@ shift $(($OPTIND ))
 
 script_dir=$(dirname "$0")
 mkdir -p $exec_dir
+
+# Use build_modularized_executable.sh as a template for the wrapper script
 cp $script_dir/build_modularized_executable.sh $exec_dir
-#replace CONTAINERENV_ with SINGULARITY/APPTAINER
+
+# Replace CONTAINERENV_ with SINGULARITY/APPTAINER
 if [[ -z $(env | grep APPTAINER) ]]; then 
    sed -i 's/CONTAINERENV_/SINGULARITYENV_/g' $exec_dir/build_modularized_executable.sh
 else 
    sed -i 's/CONTAINERENV_/APPTAINERENV_/g' $exec_dir/build_modularized_executable.sh
 fi
-#replace the paths in the script
+
+# Replace the paths in the script
 sed -i "s|IMAGE|$SINGULARITY_CONTAINER|g" $exec_dir/*_executable.sh
 nbinds=`echo $SINGULARITY_BIND | awk -F "," '{print NF }'`
 bindstring=" "
@@ -57,6 +61,7 @@ echo $bindstring
 sed -i "s|BINDDIRS|$bindstring|g" $exec_dir/*_executable.sh
 sed -i "s|FI_PATH|$FI_PROVIDER_PATH|g" $exec_dir/*_executable.sh
 
+# Create wrapper scripts for the file list
 fileList="make cmake ctest aws"
 for file in $fileList
 do

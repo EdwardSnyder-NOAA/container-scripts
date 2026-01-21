@@ -87,7 +87,7 @@ else
     new_fi_provider="/opt/intel/oneapi/redist/opt/mpi/libfabric/lib/prov:/usr/lib/x86_64-linux-gnu/libfabric"
 fi
 
-# Ensure that the compilers are MPI are set before running
+# Ensure that the compilers and MPI are set before running
 if [[ -z "$new_ifort" || -z "$new_icx" || -z "$new_icpx" ]]; then
     echo "Please load the compilers you want in your spack-stack before running this script!"
     exit 1

@@ -7,6 +7,8 @@ if [[ -z $img ]]; then
   echo "export img to point to the container image you are using"
   exit 1
 fi
+
+# Set bind dir(s)
 bindir=`pwd | awk -F"/" '{print $2}'`
 imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
 if [[ $bindir == $imgdir ]]; then
@@ -14,10 +16,13 @@ if [[ $bindir == $imgdir ]]; then
 else
     cmd_dir="-B /$bindir -B /$imgdir"
 fi
+
+# Loop through files that need to be externalized
 for efile in $arg; 
    do binfile=$(file -L $efile | grep ELF)
       if [[ $binfile =~ "ELF" ]]; then 
          echo $efile; 
+	 # Call dot-externalize.sh script
          singularity exec -e $cmd_dir "${img}" /opt/container-scripts/dot-externalize.sh $efile
       fi; 
 done
