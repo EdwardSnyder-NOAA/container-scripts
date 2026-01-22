@@ -202,7 +202,7 @@ done
 # These additional commands add the external FI PROVIDER path to the newly created wrapper scripts by make-external
 if ! grep -qr fi_provider_path $ss_location_rp/bin/make-external; then
     sed -i "5i\export fi_provider_path=$new_fi_provider" $ss_location_rp/bin/make-external
-    sed -i '23i\         sed -i "s|FI_PROVIDER_PATH=\\(.*\\)|FI_PROVIDER_PATH=${fi_provider_path}|g" $efile' $ss_location_rp/bin/make-external
+    sed -i '30i\         sed -i "s|FI_PROVIDER_PATH=\\(.*\\)|FI_PROVIDER_PATH=${fi_provider_path}|g" $efile' $ss_location_rp/bin/make-external
 else
     sed -i "s|fi_provider_path=\(.*\)|fi_provider_path="$new_fi_provider"|g" $ss_location_rp/bin/make-external
 fi
