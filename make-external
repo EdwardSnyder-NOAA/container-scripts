@@ -3,6 +3,7 @@
 #export img=/scratch1/NCEPDEV/nems/Mark.Potts/container-stage/ubuntu22.04-intel-ufs-env-v1.6.0.img
 export SINGULARITY_SHELL=/bin/bash
 arg="$@"
+arg_lst=($arg)
 if [[ -z $img ]]; then
   echo "export img to point to the container image you are using"
   exit 1
@@ -11,11 +12,13 @@ fi
 # Set bind dir(s)
 bindir=`pwd | awk -F"/" '{print $2}'`
 imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
+execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
 if [[ $bindir == $imgdir ]]; then
     cmd_dir=" -B /$bindir"
 else
     cmd_dir="-B /$bindir -B /$imgdir"
 fi
+[[ ! "$execdir" =~ "$cmd_dir" ]] && cmd_dir="$cmd_dir -B /$execdir"
 
 # Loop through files that need to be externalized
 for efile in $arg; 
