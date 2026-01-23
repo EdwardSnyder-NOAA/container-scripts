@@ -9,23 +9,47 @@ if [[ -z $img ]]; then
   exit 1
 fi
 
-# Set bind dir(s)
+# Get relevant dirs
 bindir=`pwd | awk -F"/" '{print $2}'`
 imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
 execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
-if [[ $bindir == $imgdir ]]; then
-    cmd_dir=" -B /$bindir"
+echo $bindir $imgdir $execdir
+# Set dirs_array
+dirs_array=()
+add_me=1
+if [[ -z "${bind_dirs}" ]]; then
+    echo "bind_dirs is unset"
 else
-    cmd_dir="-B /$bindir -B /$imgdir"
+    IFS=',' read -r -a dirs_array <<< "${bind_dirs}"
 fi
-[[ ! "$execdir" =~ "$cmd_dir" ]] && cmd_dir="$cmd_dir -B /$execdir"
+# Add other dirs
+for dir in $bindir $imgdir $execdir; do
+    for da in "${dirs_array[@]}"; do
+        if [[ "$dir" == "$da" ]]; then
+            echo "$dir is found in array. Break loop."
+            add_me=0
+            break
+        fi
+    done
+    if [[ $add_me == 1 ]]; then
+        echo "Add $dir to array"
+        dirs_array+=($dir)
+    fi
+done
+
+# Create bind dir string
+cmd_dir=""
+for d in "${dirs_array[@]}"; do
+   cmd_dir="-B /$d $cmd_dir"
+done
 
 # Loop through files that need to be externalized
-for efile in $arg; 
+for efile in $arg;
    do binfile=$(file -L $efile | grep ELF)
-      if [[ $binfile =~ "ELF" ]]; then 
-         echo $efile; 
-	 # Call dot-externalize.sh script
+      if [[ $binfile =~ "ELF" ]]; then
+         echo $efile;
+         # Call dot-externalize.sh script
          singularity exec -e $cmd_dir "${img}" /opt/container-scripts/dot-externalize.sh $efile
-      fi; 
+      fi;
 done
+

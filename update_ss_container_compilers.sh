@@ -155,18 +155,26 @@ sed -i "s|ENV_FC\",\(.*\)|ENV_FC\", "\"${new_mpiifort}"\")|g" $comp_lua_file
 echo "Setting various variables"
 ss_path=$(/usr/bin/grep -r ENV_PATH "$comp_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_path"|"$new_path"|g" $comp_lua_file
+# Add or change I MPI ROOT and FI PROVIDER
 ss_i_mpi_root=$(/usr/bin/grep -r I_MPI_ROOT "$comp_lua_file" | awk -F '"' '{print $4}')
-# Add I MPI ROOT if need be
+ss_fi_provider=$(/usr/bin/grep -r FI_PROVIDER_PATH "$comp_lua_file" | awk -F '"' '{print $4}')
+# Find env type
+if ! grep -qr "APPTAINERENV_" "$comp_lua_file"; then
+    cont_type="SINGULARITYENV_"
+else
+    cont_type="APPTAINERENV_"
+fi
+# I MPI ROOT
 if [[ -z $ss_i_mpi_root ]]; then
-    # find env type
-    if ! grep -qr "APPTAINERENV_" "$comp_lua_file"; then
-        cont_type="SINGULARITYENV_"
-    else
-        cont_type="APPTAINERENV_"
-    fi
     sed -i "/\prereq/a setenv(\"${cont_type}I_MPI_ROOT\", \"$new_i_mpi_root\")" $comp_lua_file
 else
     sed -i "s|"$ss_i_mpi_root"|"$new_i_mpi_root"|g" $comp_lua_file
+fi
+# FI PROVIDER
+if [[ -z $ss_fi_provider ]]; then
+    sed -i "/\prereq/a setenv(\"${cont_type}FI_PROVIDER_PATH\", \"$new_fi_provider\")" $comp_lua_file
+else
+    sed -i "s|"$ss_fi_provider"|"$new_fi_provider"|g" $comp_lua_file
 fi
 ss_lib_path=$(/usr/bin/grep -r ENV_LIBRARY_PATH "$comp_lua_file" | awk -F '"' '{print $4}')
 sed -i "s|"$ss_lib_path"|"$new_lib"|g" $comp_lua_file
@@ -200,19 +208,19 @@ done
 
 # Ensure make-external is set to work with external compilers
 # These additional commands add the external FI PROVIDER path to the newly created wrapper scripts by make-external
-if ! grep -qr fi_provider_path $ss_location_rp/bin/make-external; then
-    sed -i "5i\export fi_provider_path=$new_fi_provider" $ss_location_rp/bin/make-external
-    sed -i '30i\         sed -i "s|FI_PROVIDER_PATH=\\(.*\\)|FI_PROVIDER_PATH=${fi_provider_path}|g" $efile' $ss_location_rp/bin/make-external
-else
-    sed -i "s|fi_provider_path=\(.*\)|fi_provider_path="$new_fi_provider"|g" $ss_location_rp/bin/make-external
-fi
+#if ! grep -qr fi_provider_path $ss_location_rp/bin/make-external; then
+#    sed -i "5i\export fi_provider_path=$new_fi_provider" $ss_location_rp/bin/make-external
+#    sed -i '30i\         sed -i "s|FI_PROVIDER_PATH=\\(.*\\)|FI_PROVIDER_PATH=${fi_provider_path}|g" $efile' $ss_location_rp/bin/make-external
+#else
+#    sed -i "s|fi_provider_path=\(.*\)|fi_provider_path="$new_fi_provider"|g" $ss_location_rp/bin/make-external
+#fi
 # Add bind dir to make-external
-for td in "${top_dir[@]}"; do
-    if ! grep -qr "B /$td" $ss_location_rp/bin/make-external; then
-        echo "Missing top dir! Add it!"
-        sed -i "s| -B| -B /$td -B|g" $ss_location_rp/bin/make-external
-    fi
-done
+#for td in "${top_dir[@]}"; do
+#    if ! grep -qr "B /$td" $ss_location_rp/bin/make-external; then
+#        echo "Missing top dir! Add it!"
+#        sed -i "s| -B| -B /$td -B|g" $ss_location_rp/bin/make-external
+#    fi
+#done
 
 # Create wrapper array
 echo "Creating array of wrapper scripts"

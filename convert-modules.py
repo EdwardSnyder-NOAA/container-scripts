@@ -116,8 +116,7 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
              binary_files = get_binary_executables(bindir)
              print(binary_files)
              for binfile in binary_files:
-               command = "./make-external "+os.path.join(bindir,binfile) 
-               print(command)
+               command = "./make-external "+os.path.join(bindir,binfile)
                os.system(command)
            content += new_line
            break
@@ -175,6 +174,8 @@ if __name__ == "__main__":
                         help="Sync up the host Intel compilers and Intel MPI with the container spack-stack")
     parser.add_argument("-s", "--sandbox-compilers", dest="sandbox_compilers", required=False,
                         help="Path to Intel compilers sandbox")
+    parser.add_argument("-d", "--bind-dirs", dest="bind_dirs", required=False,
+                        help="Dir(s) separated by comma that need to be binded to the container")
 
     args = parser.parse_args()
     # set the img as an environment variable
@@ -182,6 +183,9 @@ if __name__ == "__main__":
     # get the basename of PWD to bind with singularity
     command = "dirname $PWD | awk -F'/' '{print $2}'"
     basepath = "/"+os.popen(command).read().strip()+" "
+
+    # set bind_dirs var
+    os.environ['bind_dirs'] = args.bind_dirs
 
     # Ensure only one argument is used
     if args.host_compilers is True and args.sandbox_compilers is not None:
