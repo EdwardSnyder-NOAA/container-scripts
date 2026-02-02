@@ -221,6 +221,8 @@ done
 #        sed -i "s| -B| -B /$td -B|g" $ss_location_rp/bin/make-external
 #    fi
 #done
+# Update new_compiler_dirs var in make-external
+sed -i "s|new_compiler_dirs=\(.*\)|new_compiler_dirs=${top_dir[*]}|g" $ss_location_rp/bin/make-external
 
 # Create wrapper array
 echo "Creating array of wrapper scripts"
