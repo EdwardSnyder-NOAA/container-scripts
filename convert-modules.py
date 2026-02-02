@@ -184,13 +184,26 @@ if __name__ == "__main__":
     command = "dirname $PWD | awk -F'/' '{print $2}'"
     basepath = "/"+os.popen(command).read().strip()+" "
 
-    # set bind_dirs var
-    os.environ['bind_dirs'] = args.bind_dirs
-
     # Ensure only one argument is used
     if args.host_compilers is True and args.sandbox_compilers is not None:
         print("Both compiler options are set. Please set one or the other!")
         exit(1)
+
+    # Set bind dir for gen-build-tools.sh
+    if args.bind_dirs is not None:
+        # set bind_dirs var
+        os.environ['bind_dirs'] = args.bind_dirs
+        # convert arg to a list
+        bind_dirs_lst = args.bind_dirs.split(",")
+        # add base dir if not in list
+        if basepath.replace("/","").replace(" ","")  not in bind_dirs_lst:
+            bind_dirs_lst.append(basepath.replace("/","").replace(" ",""))
+        # create dirs_cmd var
+        dirs_cmd=""
+        for bd in bind_dirs_lst:
+            dirs_cmd="-B /{0} {1}".format(bd, dirs_cmd)
+    else:
+       dirs_cmd="-B {0}".format(basepath)
 
     # get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
@@ -290,7 +303,7 @@ if __name__ == "__main__":
     os.system(command)
 
     # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
-    command = "singularity exec -B "+basepath+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
+    command = "singularity exec -B "+dirs_cmd+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
     os.system(command)
     os.system("rm -rf ./modulefiles")
     os.system("rm ./make-external")
