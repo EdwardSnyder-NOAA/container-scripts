@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import subprocess
 from argparse import ArgumentParser
 import stat
@@ -187,7 +188,7 @@ if __name__ == "__main__":
     # Ensure only one argument is used
     if args.host_compilers is True and args.sandbox_compilers is not None:
         print("Both compiler options are set. Please set one or the other!")
-        exit(1)
+        sys.exit(1)
 
     # Set bind dir for gen-build-tools.sh
     if args.bind_dirs is not None:
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     os.system(command)
 
     # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
-    command = "singularity exec -B "+dirs_cmd+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
+    command = "singularity exec "+dirs_cmd+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
     os.system(command)
     os.system("rm -rf ./modulefiles")
     os.system("rm ./make-external")
@@ -321,7 +322,7 @@ if __name__ == "__main__":
         cmd_ln_arg = f"-s {args.sandbox_compilers}"
     else:
         print("Using container compilers.\nDONE")
-        exit(1)
+        sys.exit(1)
 
     # Update compilers info in spack-stack lua files
     command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/update_ss_container_compilers.sh ."
