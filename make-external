@@ -13,17 +13,23 @@ fi
 bindir=`pwd | awk -F"/" '{print $2}'`
 imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
 execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
-echo $bindir $imgdir $execdir
-# Set dirs_array
-dirs_array=()
-add_me=1
+# This variable is modified by the update_ss_container_compiler.sh script
+new_compiler_dirs=()
+# Clean the variable
+clean_comp_dirs=()
+IFS=',' read -r -a clean_comp_dirs <<< "${new_compiler_dirs[@]}"
+
+# Set bind_dirs array, which comes from the convert-modules.py script
+clean_bind_dirs=()
 if [[ -z "${bind_dirs}" ]]; then
     echo "bind_dirs is unset"
 else
-    IFS=',' read -r -a dirs_array <<< "${bind_dirs}"
+    IFS=',' read -r -a clean_bind_dirs <<< "${bind_dirs}"
 fi
-# Add other dirs
-for dir in $bindir $imgdir $execdir; do
+
+# Combine all the dirs into dirs_arrary
+for dir in $bindir $imgdir $execdir ${clean_comp_dirs[@]} ${clean_bind_dirs[@]}; do
+    add_me=1
     for da in "${dirs_array[@]}"; do
         if [[ "$dir" == "$da" ]]; then
             echo "$dir is found in array. Break loop."
@@ -37,7 +43,7 @@ for dir in $bindir $imgdir $execdir; do
     fi
 done
 
-# Create bind dir string
+# Create bind dir string for cmd using dirs_arrary
 cmd_dir=""
 for d in "${dirs_array[@]}"; do
    cmd_dir="-B /$d $cmd_dir"
@@ -52,4 +58,3 @@ for efile in $arg;
          singularity exec -e $cmd_dir "${img}" /opt/container-scripts/dot-externalize.sh $efile
       fi;
 done
-
