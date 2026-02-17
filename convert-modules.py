@@ -190,10 +190,15 @@ if __name__ == "__main__":
         print("Both compiler options are set. Please set one or the other!")
         sys.exit(1)
 
+    # Copy out the dir conf file
+    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/container-scripts/bind_directories.conf ."
+    os.system(command)
+
     # Set bind dir for gen-build-tools.sh
     if args.bind_dirs is not None:
-        # set bind_dirs var
-        os.environ['bind_dirs'] = args.bind_dirs
+        # update dir conf file with init dirs
+        os.system("sed -i 's|INIT_LOCAL_DIRS=\(.*\)|INIT_LOCAL_DIRS="+args.bind_dirs+"|g' bind_directories.conf")
+
         # convert arg to a list
         bind_dirs_lst = args.bind_dirs.split(",")
         # add base dir if not in list
@@ -205,7 +210,7 @@ if __name__ == "__main__":
             dirs_cmd="-B /{0} {1}".format(bd, dirs_cmd)
     else:
        dirs_cmd="-B {0}".format(basepath)
-
+    
     # get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()

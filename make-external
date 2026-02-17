@@ -13,22 +13,16 @@ fi
 bindir=`pwd | awk -F"/" '{print $2}'`
 imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
 execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
-# This variable is modified by the update_ss_container_compiler.sh script
-new_compiler_dirs=()
-# Clean the variable
-clean_comp_dirs=()
-IFS=',' read -r -a clean_comp_dirs <<< "${new_compiler_dirs[@]}"
 
-# Set bind_dirs array, which comes from the convert-modules.py script
-clean_bind_dirs=()
-if [[ -z "${bind_dirs}" ]]; then
-    echo "bind_dirs is unset"
-else
-    IFS=',' read -r -a clean_bind_dirs <<< "${bind_dirs}"
-fi
+# Source dir variables
+clean_local_dirs=()
+clean_comp_dirs=()
+source bind_directories.conf 
+IFS=',' read -r -a clean_local_dirs <<< "${INIT_LOCAL_DIRS}"
+IFS=',' read -r -a clean_comp_dirs <<< "${NEW_COMPILER_DIRS}"
 
 # Combine all the dirs into dirs_arrary
-for dir in $bindir $imgdir $execdir ${clean_comp_dirs[@]} ${clean_bind_dirs[@]}; do
+for dir in $bindir $imgdir $execdir ${clean_comp_dirs[@]} ${clean_local_dirs[@]}; do
     add_me=1
     for da in "${dirs_array[@]}"; do
         if [[ "$dir" == "$da" ]]; then
