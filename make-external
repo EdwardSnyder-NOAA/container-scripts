@@ -17,7 +17,8 @@ execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
 # Source dir variables
 clean_local_dirs=()
 clean_comp_dirs=()
-source bind_directories.conf 
+script_full_path="$(dirname "$0")"
+source $script_full_path/../../bind_directories.conf
 IFS=',' read -r -a clean_local_dirs <<< "${INIT_LOCAL_DIRS}"
 IFS=',' read -r -a clean_comp_dirs <<< "${NEW_COMPILER_DIRS}"
 
