@@ -18,8 +18,8 @@ execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
 clean_local_dirs=()
 clean_comp_dirs=()
 script_rp="$(realpath $0)"
-ss_base="${script_rp%/spack-stack*}"
-[[ ! -e $ss_base/02/bind_directories.conf ]] && echo "bind_directories.conf is missing! Exiting!" && exit 1
+ss_base="${script_rp%/modulefiles*}/modulefiles"
+[[ ! -e $ss_base/bind_directories.conf ]] && echo "bind_directories.conf is missing! Exiting!" && exit 1
 source $ss_base/bind_directories.conf
 IFS=',' read -r -a clean_local_dirs <<< "${INIT_LOCAL_DIRS}"
 IFS=',' read -r -a clean_comp_dirs <<< "${NEW_COMPILER_DIRS}"
