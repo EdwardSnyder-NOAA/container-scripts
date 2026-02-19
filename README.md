@@ -62,7 +62,7 @@ Both the GNU and Intel full environment containers include the compilers and can
 
 The Intel runtime environment container was created to meet users needs outside of the NOAA infrastructure. This container only includes the runtime environment, meaning it is missing the compilers, which are still needed in order for the spack-stack to work. Users have ***two*** compiler options when installing this container and that is to either use the [host compilers](#2a-using-host-compilers) **or** the [Intel sandbox](#2b-using-intel-sandbox). 
 
-All containers use the same initial set up (step 1) and require the exectuables to be externalized (step 3); but each container may require different python command line arguments based on which one is used (step 2).
+All containers use the same initial set up (step 1) and require the exectuables to be externalized (step 3); but each container may require different python command line arguments based on which one is being used (step 2).
 
 ## 1. Set up for all configurations
 1. Obtain the spack-stack container via s3 bucket /place/path/here
@@ -136,7 +136,7 @@ There may be a situation where you need to switch the compilers of the externali
 |/path/to/modulefiles/spack-stack-1.9.2/oneapi/*/*/bin/* |
 
 
-To switch compilers, ensure that the new compilers are pre-loaded either on the [host compilers](#2a-using-host-compilers) or the [Intel sandbox](#2b-using-intel-sandbox). Once they are loaded, run the following commands:
+To switch compilers, ensure that the new compilers are pre-loaded either using the [host compilers](#2a-using-host-compilers) or the [Intel sandbox](#2b-using-intel-sandbox). Once they are loaded, run the following commands:
 ```
 cd /path/to/modulefiles
 ./update_ss_container_compilers.sh -o /path/to/modulefiles/spack-stack-1.9.2 [-s <path to Intel sandbox>]
