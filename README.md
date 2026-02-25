@@ -113,7 +113,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    mkdir /example-dir/tmp
    export SINGULARITY_CACHEDIR=/example-dir/cache
    export SINGULARITY_TMPDIR=/example-dir/tmp
-   singularity build --sandbox intel-sandbox docker://noaaepic/intel-hpckit:2024.2.0-1-devel-ubuntu22.04
+   singularity build --sandbox intel-sandbox docker://intel/hpckit:2024.2.0-1-devel-ubuntu22.04
    ```
    Note: 
    - example-dir is the location of a writable directory with disk space available.
