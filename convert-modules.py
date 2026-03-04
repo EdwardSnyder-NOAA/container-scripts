@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import subprocess
 from argparse import ArgumentParser
 import stat
@@ -54,6 +55,7 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
     
     :param content: str, The Lua file content as a string.
     :param envs_to_modify: list, Environment variable names to be prefixed.
+    :param compiler_type: str, Defines which compiler was used to build the spack-stack.
     :return: str, The modified Lua file content.
     """
 
@@ -85,8 +87,11 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
         match = re.search(pattern,line)
         new_pattern = os.getcwd()
         if match:
+           # fix for spack-stack v1.9.2 container since it has two stack paths
            if(compiler_type == "intel"):
              new_line = re.sub(r'"([^"]*)\s*(?=intel)', f'"{new_pattern}/', line)
+           elif(compiler_type == "gcc"):
+             new_line = re.sub(r'"([^"]*)\s*(?=gcc)', f'"{new_pattern}/', line)
            else:
              new_line = re.sub(r'"([^"]*)\s*(?=oneapi)', f'"{new_pattern}/', line)
 #          new_line = re.sub(r'"([^"]*)\s*(?=' + re.escape(compiler_type) + ')', f'"{new_pattern}/"', line)
@@ -112,8 +117,7 @@ def modify_lua_content(content, envs_to_modify, compiler_type):
              binary_files = get_binary_executables(bindir)
              print(binary_files)
              for binfile in binary_files:
-               command = "./make-external "+os.path.join(bindir,binfile) 
-               print(command)
+               command = "./make-external "+os.path.join(bindir,binfile)
                os.system(command)
            content += new_line
            break
@@ -128,6 +132,7 @@ def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
     
     :param output_dir: str, The path to the output directory where modified Lua files will be saved.
     :param vars_file: str, The path to the file containing environment variable names.
+    :param compiler_type: str, Defines which compiler was used to build the spack-stack.
     """
     source_dir = "./modulefiles"
     print("running copy and modify")
@@ -135,6 +140,7 @@ def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         
+        # Read contents of the lua file
         for root, _, files in os.walk(source_dir):
             for file in files:
                 if file.endswith(".lua"):
@@ -142,6 +148,7 @@ def copy_and_modify_lua_files(output_dir, vars_file, compiler_type):
                     with open(file_path, 'r') as f:
                         content = f.read()
                     
+                    # Call modify_lua_content function
                     modified_content = modify_lua_content(content, read_envs_from_file(vars_file),compiler_type)
                     
                     # Determine the output file path relative to the source directory
@@ -164,26 +171,68 @@ if __name__ == "__main__":
                         help="Path to the singularity image file containing spack-stack")
     parser.add_argument("-o", "--output-dir", dest="output_dir", required=True,
                         help="Path to the output directory for modified Lua files")
-    
+    parser.add_argument("--host-compilers", action='store_true', dest="host_compilers", required=False,
+                        help="Sync up the host Intel compilers and Intel MPI with the container spack-stack")
+    parser.add_argument("-s", "--sandbox-compilers", dest="sandbox_compilers", required=False,
+                        help="Path to Intel compilers sandbox")
+    parser.add_argument("-d", "--bind-dirs", dest="bind_dirs", required=False,
+                        help="Dir(s) separated by comma that need to be binded to the container")
+
     args = parser.parse_args()
-    #set the img as an environment variable
+    # set the img as an environment variable
     os.environ['img'] = args.img
-    #get the basename of PWD to bind with singularity
+    # get the basename of PWD to bind with singularity
     command = "dirname $PWD | awk -F'/' '{print $2}'"
     basepath = "/"+os.popen(command).read().strip()+" "
 
+    # Ensure only one argument is used
+    if args.host_compilers is True and args.sandbox_compilers is not None:
+        print("Both compiler options are set. Please set one or the other!")
+        sys.exit(1)
 
-    #get the spack-stack version
+    # Copy out the dir conf file
+    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/container-scripts/bind_directories.conf ."
+    os.system(command)
+
+    # Set bind dir for gen-build-tools.sh
+    if args.bind_dirs is not None:
+        # update dir conf file with init dirs
+        os.system("sed -i 's|INIT_LOCAL_DIRS=\(.*\)|INIT_LOCAL_DIRS="+args.bind_dirs+"|g' bind_directories.conf")
+
+        # convert arg to a list
+        bind_dirs_lst = args.bind_dirs.split(",")
+        # add base dir if not in list
+        if basepath.replace("/","").replace(" ","")  not in bind_dirs_lst:
+            bind_dirs_lst.append(basepath.replace("/","").replace(" ",""))
+        # create dirs_cmd var
+        dirs_cmd=""
+        for bd in bind_dirs_lst:
+            dirs_cmd="-B /{0} {1}".format(bd, dirs_cmd)
+    else:
+       dirs_cmd="-B {0}".format(basepath)
+    
+    # get the spack-stack version
     command =  'singularity exec $img ls /opt/spack-stack'
     spack_stack_ver = os.popen(command).read().strip()
+    # get env name
+    command =  "singularity exec $img ls /opt/spack-stack/"+spack_stack_ver+"/envs/"
+    spack_stack_env = os.popen(command).read().strip()
     # copy the all the modulefiles out of the container image
-    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/modulefiles ."
+    command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/"+spack_stack_env+"/install/modulefiles ."
     print(command)
     os.system(command)
 
-    # get the stack type (intel v oneapi)
+    # get the stack type (intel v oneapi v gcc)
     stack_type=os.popen("ls ./modulefiles/Core").read().strip()
     compiler_type=stack_type.split("-")[1]
+
+    # Copy over gnu and openmpi to a newly created dir, if it is the gnu spack-stack
+    if compiler_type == "gcc" and spack_stack_env == "ufs-wm-env":
+        os.makedirs("modulefiles/container-software/modulefiles")
+        command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/modulefiles/gnu modulefiles/container-software/modulefiles"
+        os.system(command)
+        command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/modulefiles/openmpi modulefiles/container-software/modulefiles"
+        os.system(command)
 
 #   command = "singularity exec -e -B "+basepath+args.img+" cp -r /opt/spack-stack/"+spack_stack_ver+"/envs/unified-env/install/"+compiler_type+" ."
 #   os.system(command)
@@ -197,21 +246,25 @@ if __name__ == "__main__":
 
     # get the original module path from the lua file
     command = '/usr/bin/grep MODULEPATH ./modulefiles/Core/'+stack_type+'/*.lua | awk -F \'"\' \'{print $4}\''
-    spack_stack_path = os.popen(command).read().strip()
-
-    parts = spack_stack_path.split('/')
-    modulefiles_index = parts.index("modulefiles")
-    parts[:modulefiles_index + 1] = [args.output_dir]
-    new_path = '/'.join(parts)
-   
-    command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+spack_stack_path+"|"+new_path+"|g'"
-    os.system(command)
+    # Split if we have more than one spack-stack location
+    spack_stack_path = os.popen(command).read().strip().split("\n")
+    # Loop through list
+    for ss_path in spack_stack_path:
+        #print(ss_path)
+        parts = ss_path.split('/')
+        modulefiles_index = parts.index("modulefiles")
+        parts[:modulefiles_index + 1] = [args.output_dir]
+        new_path = '/'.join(parts)
+        #print(f"new_path: {new_path}")
+        command ="/usr/bin/grep -R -l MODULEPATH "+args.output_dir+"/Core | xargs sed -i 's|"+ss_path+"|"+new_path+"|g'"
+        os.system(command)
 
     # get the origin module path for the mpi module
     command = '/usr/bin/grep -R MODULEPATH ./modulefiles/'+compiler_type+' | awk -F \'"\' \'{print $4}\' | head -n 1'
     mpi_stack_path = os.popen(command).read().strip()
     # hack to get this working
-    mpi_stack_path = re.sub("fms-2024.01","unified-env",mpi_stack_path)
+    if compiler_type == "oneapi" and spack_stack_env == "unified-env":
+        mpi_stack_path = re.sub("fms-2024.01","unified-env",mpi_stack_path)
 
     print("using this modulepath to grep",mpi_stack_path)
     # replace the original path with the new path on the host system
@@ -223,7 +276,7 @@ if __name__ == "__main__":
     print("running this command for modulepath ",command)
     os.system(command)
 
-    #set some basic paths inside the container that also include the location of ifort, icc, and icpc
+    # set some basic paths inside the container that also include the location of ifort, icc, and icpc
     lua_file_path = args.output_dir+"/Core/"+stack_type+"/*.lua"
     container_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local"
 
@@ -237,11 +290,11 @@ if __name__ == "__main__":
     os.system(command)
 
     # some lua systems are incompatable with depends_on, so change that to load. It is slower, but works
-    command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
-    os.system(command)
+    #command = "/usr/bin/grep -Ri -l depends_on "+args.output_dir+"/* | xargs sed -i 's/depends_on/load/g'"
+    #os.system(command)
 
-    #set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
-    #add img to the stack-intel/oneapi module as well
+    # set path on host system to $PWD/args.output_dir/bin, which is where the gen tools will be placed
+    # add img to the stack-intel/oneapi module as well
     local_path = args.output_dir+"/bin"
     os.system("mkdir "+local_path)
     new_line = 'prepend_path("PATH","'+local_path+'")'
@@ -251,12 +304,12 @@ if __name__ == "__main__":
     sed_command = f'sed -i \'/ENV_PATH/a {new_line}\' {stack_intel_lua_file}'
     os.system(sed_command)
 
-    #put make-external in the bin path
+    # put make-external in the bin path
     command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/make-external "+local_path
     os.system(command)
 
     # generate the build tools locally in $PWD/bin. This path will be added to the path set in stack-intel module
-    command = "singularity exec -B "+basepath+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
+    command = "singularity exec "+dirs_cmd+" -e $img /opt/container-scripts/gen-build-tools.sh -e "+local_path
     os.system(command)
     os.system("rm -rf ./modulefiles")
     os.system("rm ./make-external")
@@ -265,4 +318,19 @@ if __name__ == "__main__":
     luafile = os.popen(command).read().strip()
     os.system("echo >> "+luafile)
     command = "cat "+luafile+" | /usr/bin/grep ENV_LD_LIBRARY_PATH | sed 's/LD_LIB/LIB/g' >>"+luafile
+    os.system(command)
+
+    # Check if using external compilers
+    if args.host_compilers is True:
+        cmd_ln_arg = ""
+    elif args.sandbox_compilers is not None:
+        cmd_ln_arg = f"-s {args.sandbox_compilers}"
+    else:
+        print("Using container compilers.\nDONE")
+        sys.exit(1)
+
+    # Update compilers info in spack-stack lua files
+    command = "singularity exec -B "+basepath+" $img cp /opt/container-scripts/update_ss_container_compilers.sh ."
+    os.system(command)
+    command = f"./update_ss_container_compilers.sh -o {args.output_dir} {cmd_ln_arg}"
     os.system(command)

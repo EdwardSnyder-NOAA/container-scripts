@@ -4,8 +4,11 @@ set -x
 fileList=$@
 
 script_dir=$(dirname "$0")
+
+# Use run_modularized_executable.sh as a template for the wrapper script
 cp $script_dir/run_modularized_executable.sh $PWD
-#replace CONTAINERENV_ with SINGULARITY/APPTAINER
+
+# Replace CONTAINERENV_ with SINGULARITY/APPTAINER
 if [[ -z $(env | grep APPTAINER) ]]; then 
    sed -i 's/CONTAINERENV_/SINGULARITYENV_/g' $PWD/run_modularized_executable.sh
    #replace the paths in the script
@@ -24,6 +27,7 @@ echo $bindstring
 sed -i "s|BINDDIRS|$bindstring|g" $PWD/run_modularized_executable.sh
 sed -i "s|FI_PATH|$FI_PROVIDER_PATH|g" $PWD/run_modularized_executable.sh
 
+# Loop through file(s) that need to be externalized
 for file in $fileList
 do
   fullfile=$(readlink -m $file)

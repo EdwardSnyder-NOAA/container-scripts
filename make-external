@@ -3,16 +3,55 @@
 #export img=/scratch1/NCEPDEV/nems/Mark.Potts/container-stage/ubuntu22.04-intel-ufs-env-v1.6.0.img
 export SINGULARITY_SHELL=/bin/bash
 arg="$@"
+arg_lst=($arg)
 if [[ -z $img ]]; then
   echo "export img to point to the container image you are using"
   exit 1
 fi
+
+# Get relevant dirs
 bindir=`pwd | awk -F"/" '{print $2}'`
-for efile in $arg; 
-   do binfile=$(file -L $efile | grep ELF)
-      if [[ $binfile =~ "ELF" ]]; then 
-         echo $efile; 
-         singularity exec -e -B /$bindir "${img}" /opt/container-scripts/dot-externalize.sh $efile
-      fi; 
+imgdir=$( echo "${img}" | awk -F"/" '{print $2}')
+execdir=$( echo "${arg_lst[0]}" | awk -F"/" '{print $2}')
+
+# Source dir variables
+clean_local_dirs=()
+clean_comp_dirs=()
+script_rp="$(realpath $0)"
+ss_base="${script_rp%/modulefiles*}/modulefiles"
+[[ ! -e $ss_base/bind_directories.conf ]] && echo "bind_directories.conf is missing! Exiting!" && exit 1
+source $ss_base/bind_directories.conf
+IFS=',' read -r -a clean_local_dirs <<< "${INIT_LOCAL_DIRS}"
+IFS=',' read -r -a clean_comp_dirs <<< "${NEW_COMPILER_DIRS}"
+
+# Combine all the dirs into dirs_arrary
+for dir in $bindir $imgdir $execdir ${clean_comp_dirs[@]} ${clean_local_dirs[@]}; do
+    add_me=1
+    for da in "${dirs_array[@]}"; do
+        if [[ "$dir" == "$da" ]]; then
+            echo "$dir is found in array. Break loop."
+            add_me=0
+            break
+        fi
+    done
+    if [[ $add_me == 1 ]]; then
+        echo "Add $dir to array"
+        dirs_array+=($dir)
+    fi
 done
 
+# Create bind dir string for cmd using dirs_arrary
+cmd_dir=""
+for d in "${dirs_array[@]}"; do
+   cmd_dir="-B /$d $cmd_dir"
+done
+
+# Loop through files that need to be externalized
+for efile in $arg;
+   do binfile=$(file -L $efile | grep ELF)
+      if [[ $binfile =~ "ELF" ]]; then
+         echo $efile;
+         # Call dot-externalize.sh script
+         singularity exec -e $cmd_dir "${img}" /opt/container-scripts/dot-externalize.sh $efile
+      fi;
+done
