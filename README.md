@@ -65,22 +65,25 @@ The Intel runtime environment container was created to meet users needs outside 
 All containers use the same initial set up (step 1) and require the exectuables to be externalized (step 3); but each container may require different python command line arguments based on which one is being used (step 2).
 
 ## 1. Set up for all configurations
-1. Obtain the spack-stack container via s3 bucket /place/path/here
-2. Set the container to the ```img``` variable
+1. Obtain the spack-stack container via [s3 bucket](https://noaa-ufs-gdas-pds.s3.amazonaws.com/index.html#spack-stack-containers/). Command for most recent spack-stack container.
+   ```
+   wget https://noaa-ufs-gdas-pds.s3.amazonaws.com/spack-stack-containers/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
+   ```
+3. Set the container to the ```img``` variable
    ```
    export img=/path/to/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
-3. Create and navigate to the modulefiles directory
+4. Create and navigate to the modulefiles directory. **NOTE: it is crucial that the modulefiles directory is used as the python script is expecting it!**
    ```
    mkdir modulefiles
    cd modulefiles
    ```
-4. Copy out the ```convert-modules.py``` file
+5. Copy out the ```convert-modules.py``` file
    ```
    singularity exec -B /<top-dir> $img cp /opt/container-scripts/convert-modules.py .
    ```
    Notes:
-   - top-dir is the first dir in your $PWD.
+   - top-dir is the first dir in your $PWD. Example $PWD=/this/is/an/example/path; top-dir=this
    - You may have to module load singularity or apptainer first before running this command.
 
 ## 2. GNU or Intel full environment set up
@@ -146,14 +149,46 @@ Note:
 
 ## 3. Building and running with the externalized spack-stack container
 ### Building
-Once the externalized spack-stack is built, the UFS WM of UFS Application needs to point to it. This is done by updating the ```MODULEPATH``` variable in the modulefiles. See the [UFS WM PR](https://github.com/ufs-community/ufs-weather-model/compare/develop...EdwardSnyder-NOAA:ufs-weather-model:container-ss-192) for an example of how the modulefiles are being updated. 
+Once the externalized spack-stack is built, the UFS WM or UFS Application needs to point to it. This is done by updating the ```MODULEPATH``` variable and the Intel packages that are loaded in the modulefile. NOTE: the externalized spack-stack has only been tested with the UFS WM and global-workflow. An example of these changes ```modulefiles/ufs_orion.intel.lua``` on Orion for the UFS WM is below:
+```
+prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/Core")
+prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0")
+
+stack_intel_ver=os.getenv("stack_intel_ver") or "2024.2.0"
+load(pathJoin("stack-oneapi", stack_intel_ver))
+
+stack_impi_ver=os.getenv("stack_impi_ver") or "2021.13"
+load(pathJoin("stack-intel-oneapi-mpi", stack_impi_ver))
+
+-- Add singularity if it is not natively loaded
+load("singularity")
+
+load("ufs_common")
+
+setenv("CMAKE_Platform", "orion.intel")
+
+whatis("Description: UFS build environment")
+```
 
 ### Running
-After the application has been built, the executables need to be externalized. The simplest way to do that is to load the externalized spack-stack, and the stack-oneapi module. This will put the ```make-external``` script in the user's ```PATH``` variable. Then simply run the script to externalize the executable. Wildcards are also accepted here:
+After the application has been built, the executables need to be externalized. The simplest way to do that is to load the externalized spack-stack, and the stack-oneapi module or load the machine's modulefile. This will put the ```make-external``` script in the user's ```PATH``` variable. Then simply run the script to externalize the executable. Wildcards are also accepted here:
    ```
    make-external /path/to/executable.exe
    make-external /path/to/executables/*
    ```
+In addition, Slurm is the only job scheduler currently designed to work with the externalized spack-stack and requires ```--mpi=pmi2``` to be added to the srun command.
+
 ### Adaptation to the workflows
-Please note that additional modifications are needed to the UFS WM and Applications workflow to incorporate this new container method. See this [UFS WM PR](https://github.com/ufs-community/ufs-weather-model/compare/develop...EdwardSnyder-NOAA:ufs-weather-model:container-ss-192) for how to use this container with the UFS WM RTs system by updating the ```compile.sh``` file.
+Please note that additional modifications are needed to the UFS WM and Applications workflows to incorporate this new container method. An example of externalizing the executables in lines 122-125 of the ```tests/compile.sh``` file for the UFS WM is below:
+```
+122 rsync --remove-source-files "${BUILD_DIR}/ufs_model" "${PATHTR}/tests/${BUILD_NAME}.exe"
+123
+124 # Create executable wrapper scripts
+125 make-external ${PATHTR}/tests/${BUILD_NAME}.exe
+```
+An example of updating the srun command for Orion in ```tests/fv3_conf/fv3_slurm.IN_orion``` is below:
+```
+srun --mpi=pmi2 --label -n @[TASKS] ./fv3.exe
+```
+
 
