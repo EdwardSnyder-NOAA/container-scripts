@@ -69,16 +69,16 @@ All containers use the same initial set up (step 1) and require the exectuables 
    ```
    wget https://noaa-ufs-gdas-pds.s3.amazonaws.com/spack-stack-containers/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
-3. Set the container to the ```img``` variable
+2. Set the container to the ```img``` variable. NOTE: Use ```${PWD}``` if the container is in the current directory, otherwise type out the full path to the container.
    ```
-   export img=/path/to/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
+   export img=${PWD}/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
-4. Create and navigate to the modulefiles directory. **NOTE: it is crucial that the modulefiles directory is used as the python script is expecting it!**
+3. Create and navigate to the modulefiles directory. **NOTE: it is crucial that the modulefiles directory is used as the python script is expecting it!**
    ```
    mkdir modulefiles
    cd modulefiles
    ```
-5. Copy out the ```convert-modules.py``` file
+4. Copy out the ```convert-modules.py``` file
    ```
    singularity exec -B /<top-dir> $img cp /opt/container-scripts/convert-modules.py .
    ```
@@ -102,7 +102,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    echo $I_MPI_ROOT
    echo $INTEL_ONEAPI_MPI_ROOT
    ```
-2. If things look in order, then run the following to build the externalized spack-stack with the host compilers:
+2. If things look in order, then run the following from the modulefiles directory to build the externalized spack-stack with the host compilers:
    ```
    python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 --host-compilers [-d <list,of,dirs>]
    ```
@@ -110,7 +110,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
 ### Using Intel sandbox
-1. Lets say the host machine doesn’t have the Intel compilers or Intel MPI installed. In this case, the user can create the Intel sandbox with the Intel compiles in them. To do that, the user would need to run the following commands:
+1. Lets say the host machine does not have the Intel compilers or Intel MPI installed. In this case, the user can create the Intel sandbox with the Intel compiles in them. To do that, the user would need to run the following commands:
    ```
    mkdir /example-dir/cache
    mkdir /example-dir/tmp
@@ -121,7 +121,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note: 
    - example-dir is the location of a writable directory with disk space available.
 
-2. After the Intel sandbox is built, run the following to build the externalized spack-stack with the Intel sandbox:
+2. After the Intel sandbox is built, run the following from the modulefiles directory to build the externalized spack-stack with the Intel sandbox compilers:
    ```
    python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 -s /path/to/intel-sandbox [-d <list,of,dirs>]
    ```
