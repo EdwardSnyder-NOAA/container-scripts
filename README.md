@@ -65,7 +65,7 @@ The Intel runtime environment container was created to meet users needs outside 
 All containers use the same initial set up (step 1) and require the exectuables to be externalized (step 3); but each container may require different python command line arguments based on which one is being used (step 2).
 
 ## 1. Set up for all configurations
-1. Obtain the spack-stack container via [s3 bucket](https://noaa-ufs-gdas-pds.s3.amazonaws.com/index.html#spack-stack-containers/). Command for most recent spack-stack container.
+1. Obtain the spack-stack container via [s3 bucket](https://noaa-ufs-gdas-pds.s3.amazonaws.com/index.html#spack-stack-containers/). The following command is for the most recent spack-stack container.
    ```
    wget https://noaa-ufs-gdas-pds.s3.amazonaws.com/spack-stack-containers/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
@@ -149,7 +149,7 @@ Note:
 
 ## 3. Building and running with the externalized spack-stack container
 ### Building
-Once the externalized spack-stack is built, the UFS WM or UFS Application needs to point to it. This is done by updating the ```MODULEPATH``` variable and the Intel packages that are loaded in the modulefile. NOTE: the externalized spack-stack has only been tested with the UFS WM and global-workflow. An example of these changes ```modulefiles/ufs_orion.intel.lua``` on Orion for the UFS WM is below:
+Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by updating the ```MODULEPATH``` variable and the Intel packages that are loaded in the modulefile to point to the externalized spack-stack. NOTE: the externalized spack-stack has only been tested with the UFS WM and global-workflow. An example of these modifications for Orion's modulefile in the UFS WM (```modulefiles/ufs_orion.intel.lua```) is below:
 ```
 prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/Core")
 prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0")
@@ -179,14 +179,12 @@ After the application has been built, the executables need to be externalized. T
 In addition, Slurm is the only job scheduler currently designed to work with the externalized spack-stack and requires ```--mpi=pmi2``` to be added to the srun command.
 
 ### Adaptation to the workflows
-Please note that additional modifications are needed to the UFS WM and Applications workflows to incorporate this new container method. An example of externalizing the executables in lines 122-125 of the ```tests/compile.sh``` file for the UFS WM is below:
+Please note that additional modifications are needed to the UFS WM and Applications workflows to incorporate this new container method. The following is an example of externalizing the executables for the UFS WM, which is done by adding the ```make-external``` command to line 123 in the ```tests/compile.sh``` file:
 ```
 122 rsync --remove-source-files "${BUILD_DIR}/ufs_model" "${PATHTR}/tests/${BUILD_NAME}.exe"
-123
-124 # Create executable wrapper scripts
-125 make-external ${PATHTR}/tests/${BUILD_NAME}.exe
+123 make-external ${PATHTR}/tests/${BUILD_NAME}.exe # Creates executable wrapper scripts
 ```
-An example of updating the srun command for Orion in ```tests/fv3_conf/fv3_slurm.IN_orion``` is below:
+Here is an example of the srun command modifications for Orion in the UFS WM (```tests/fv3_conf/fv3_slurm.IN_orion```):
 ```
 srun --mpi=pmi2 --label -n @[TASKS] ./fv3.exe
 ```
