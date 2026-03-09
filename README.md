@@ -69,11 +69,11 @@ All containers use the same initial set up (step 1) and require the exectuables 
    ```
    wget https://noaa-ufs-gdas-pds.s3.amazonaws.com/spack-stack-containers/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
-2. Set the container to the ```img``` variable. NOTE: Use ```${PWD}``` if the container is in the current directory, otherwise type out the full path to the container.
+2. Set the container to the ```img``` variable. Use ```${PWD}``` if the container is in the current directory, otherwise type out the full path to the container.
    ```
    export img=${PWD}/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
-3. Create and navigate to the modulefiles directory. **NOTE: it is crucial that the modulefiles directory is used as the python script is expecting it!**
+3. Create and navigate to the modulefiles directory. **It is crucial that the modulefiles directory is used as the python script is expecting it!**
    ```
    mkdir modulefiles
    cd modulefiles
