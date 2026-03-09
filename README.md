@@ -3,6 +3,8 @@ The container-scripts repository is a set of scripts that externalizes the spack
 
 At a high-level, the ```convert-modules.py``` script copies out the spack-stack from the container and "syncs" it via [externalization](#externalization-breakdown) with the container. This allows users to build their model inside of the spack-stack container using build [wrapper scripts](#role-of-wrapper-scripts). The model executables built using the externalized spack-stack container will also need to be externalized, so that they can run inside of the container via the executable wrapper scripts. 
 
+**Disclaimer: the externalized spack-stack is currently under development and has only been tested in a limited capacity with the UFS WM and global-workflow. Work is ongoing to improve this procedure. Any feedback, suggestions, or questions are encouraged via PR, GH issues, or direct email (edward.snyder@noaa.gov).**
+
 # File Explanation
 Description of each file in the container-scripts repository:
 
@@ -149,7 +151,7 @@ Note:
 
 ## 3. Building and running with the externalized spack-stack container
 ### Building
-Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by updating the ```MODULEPATH``` variable and the Intel packages that are loaded in the modulefile to point to the externalized spack-stack. NOTE: the externalized spack-stack has only been tested with the UFS WM and global-workflow. An example of these modifications for Orion's modulefile in the UFS WM (```modulefiles/ufs_orion.intel.lua```) is below:
+Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by updating the ```MODULEPATH``` variable and the Intel packages that are loaded in the modulefile to point to the externalized spack-stack. An example of these modifications for Orion's modulefile in the UFS WM (```modulefiles/ufs_orion.intel.lua```) is below:
 ```
 prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/Core")
 prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0")
