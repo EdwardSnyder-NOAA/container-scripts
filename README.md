@@ -3,7 +3,7 @@ The container-scripts repository is a set of scripts that externalizes the spack
 
 At a high-level, the ```convert-modules.py``` script copies out the spack-stack from the container and "syncs" it via [externalization](#externalization-breakdown) with the container. This allows users to build their model inside of the spack-stack container using build [wrapper scripts](#role-of-wrapper-scripts). The model executables built using the externalized spack-stack container will also need to be externalized, so that they can run inside of the container via the executable wrapper scripts. 
 
-**Disclaimer: the externalized spack-stack is currently under development and has only been tested in a limited capacity with the UFS WM and global-workflow. Work is ongoing to improve this procedure. Any feedback, suggestions, or questions are encouraged via PR, GH issues, or direct email (edward.snyder@noaa.gov).**
+**Disclaimer: the externalized spack-stack is currently under development and has only been tested in a limited capacity with the UFS WM and global-workflow. Work is ongoing to improve this procedure. Any feedback, suggestions, or questions are encouraged via opening a pull-request or github issue.**
 
 # File Explanation
 Description of each file in the container-scripts repository:
@@ -178,7 +178,7 @@ After the application has been built, the executables need to be externalized. T
    make-external /path/to/executable.exe
    make-external /path/to/executables/*
    ```
-In addition, Slurm is the only job scheduler currently designed to work with the externalized spack-stack and requires ```--mpi=pmi2``` to be added to the srun command.
+In addition, Slurm is the only job scheduler currently designed to work with the externalized spack-stack and requires the ```--mpi``` command line argument to be added to the srun command.
 
 ### Adaptation to the workflows
 Please note that additional modifications are needed to the UFS WM and Applications workflows to incorporate this new container method. The following is an example of externalizing the executables for the UFS WM, which is done by adding the ```make-external``` command to line 123 in the ```tests/compile.sh``` file:
@@ -186,7 +186,7 @@ Please note that additional modifications are needed to the UFS WM and Applicati
 122 rsync --remove-source-files "${BUILD_DIR}/ufs_model" "${PATHTR}/tests/${BUILD_NAME}.exe"
 123 make-external ${PATHTR}/tests/${BUILD_NAME}.exe # Creates executable wrapper scripts
 ```
-Here is an example of the srun command modifications for Orion in the UFS WM (```tests/fv3_conf/fv3_slurm.IN_orion```):
+Here is an example of the srun command with the MPI command line argument addition for Orion in the UFS WM (```tests/fv3_conf/fv3_slurm.IN_orion```):
 ```
 srun --mpi=pmi2 --label -n @[TASKS] ./fv3.exe
 ```
