@@ -82,10 +82,9 @@ All containers use the same initial set up (step 1) and require the exectuables 
    ```
 4. Copy out the ```convert-modules.py``` file
    ```
-   singularity exec -B /<top-dir> $img cp /opt/container-scripts/convert-modules.py .
+   singularity exec -H $PWD $img cp /opt/container-scripts/convert-modules.py .
    ```
-   Notes:
-   - top-dir is the first dir in your $PWD. Example $PWD=/this/is/an/example/path; top-dir=this
+   Note:
    - You may have to module load singularity or apptainer first before running this command.
 
 ## 2. GNU or Intel full environment set up
