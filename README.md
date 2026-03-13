@@ -87,7 +87,8 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note:
    - You may have to module load singularity or apptainer first before running this command.
 
-## 2. GNU or Intel full environment set up
+## 2. Install spack-stack container based on which one is used
+### GNU or Intel full environment container
 1. Since the compilers are included with these containers, no additional steps are needed to obtain them like with the Intel runtime environment container. Run the following command to build the externalized spack-stack:
    ```
    python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 [-d <list,of,dirs>]
@@ -95,8 +96,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note:
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
-## 2. Intel runtime environment set up
-### Using host compilers
+### Intel runtime environment container with host compilers
 1. Verify that the host machine has Intel compilers and Intel MPI loaded. This is done by running one of the following commands:
    ```
    which ifort icx icpx
@@ -110,7 +110,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note:
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
-### Using Intel sandbox
+### Intel runtime environment container with Intel sandbox
 1. Lets say the host machine does not have the Intel compilers or Intel MPI installed. In this case, the user can create the Intel sandbox with the Intel compiles in them. To do that, the user would need to run the following commands:
    ```
    mkdir /example-dir/cache
@@ -129,7 +129,7 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note:
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
-### Switching compilers
+#### Switching compilers
 There may be a situation where you need to switch the compilers of the externalized spack-stack. The ```update_ss_container_compilers.sh``` does this without installing the entire stack again by modifying the Intel compilers and Intel MPI variables, and the singularity commands in these locations: stack-oneapi and stack-intel-oneapi-mpi lua files, and build and binary wrapper scripts found under the bin directories. See below for paths of the files that are modified. This process usually takes about a minute to complete. 
 
 |Files modified by the update_ss_container_compilers.sh script |
