@@ -150,7 +150,18 @@ Note:
 
 ## 3. Building and running with the externalized spack-stack container
 ### Building
-Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by updating the ```MODULEPATH``` variable and the Intel packages that are loaded in the modulefile to point to the externalized spack-stack. An example of these modifications for Orion's modulefile in the UFS WM (```modulefiles/ufs_orion.intel.lua```) is below:
+Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by setting the ```MODULEPATH``` variable to the externalized spack-stack location and adding the Intel packages with the versions from the spack-stack container to the modulefile. See tables below for the ```MODULEPATH``` variable paths and the Intel packages based on the spack-stack-1.9.2 container:
+| ```MODULEPATH``` variable paths                                                       | 
+|-----------                                                                            |
+|/full/path/to/modulefiles/spack-stack-1.9.2/Core                                       |   
+|/full/path/to/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0|   
+
+| Intel Packages |
+|-----------     |
+|stack-oneapi/2024.2.0|
+|stack-intel-oneapi-mpi/2021.13|
+
+An example of these modifications for Orion's modulefile in the UFS WM (```modulefiles/ufs_orion.intel.lua```) is below:
 ```
 prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/Core")
 prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0")
