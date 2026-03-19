@@ -3,6 +3,8 @@ The container-scripts repository is a set of scripts that externalizes the spack
 
 At a high-level, the ```convert-modules.py``` script copies out the spack-stack from the container and "syncs" it via [externalization](#externalization-breakdown) with the container. This allows users to build their model inside of the spack-stack container using build [wrapper scripts](#role-of-wrapper-scripts). The model executables built using the externalized spack-stack container will also need to be externalized, so that they can run inside of the container via the executable wrapper scripts. 
 
+**Disclaimer: the externalized spack-stack is currently under development and has only been tested in a limited capacity with the UFS WM and global-workflow. Work is ongoing to improve this procedure. Any feedback, suggestions, or questions are encouraged via opening a pull-request or github issue.**
+
 # File Explanation
 Description of each file in the container-scripts repository:
 
@@ -65,25 +67,28 @@ The Intel runtime environment container was created to meet users needs outside 
 All containers use the same initial set up (step 1) and require the exectuables to be externalized (step 3); but each container may require different python command line arguments based on which one is being used (step 2).
 
 ## 1. Set up for all configurations
-1. Obtain the spack-stack container via s3 bucket /place/path/here
-2. Set the container to the ```img``` variable
+1. Obtain the spack-stack container via [s3 bucket](https://noaa-ufs-gdas-pds.s3.amazonaws.com/index.html#spack-stack-containers/). The following command is for the most recent spack-stack container.
    ```
-   export img=/path/to/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
+   wget https://noaa-ufs-gdas-pds.s3.amazonaws.com/spack-stack-containers/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
-3. Create and navigate to the modulefiles directory
+2. Set the container to the ```img``` variable. Use ```${PWD}``` if the container is in the current directory, otherwise type out the full path to the container.
+   ```
+   export img=${PWD}/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
+   ```
+3. Create and navigate to the modulefiles directory. **It is crucial that the modulefiles directory is used as the python script is expecting it!**
    ```
    mkdir modulefiles
    cd modulefiles
    ```
 4. Copy out the ```convert-modules.py``` file
    ```
-   singularity exec -B /<top-dir> $img cp /opt/container-scripts/convert-modules.py .
+   singularity exec -H $PWD $img cp /opt/container-scripts/convert-modules.py .
    ```
-   Notes:
-   - top-dir is the first dir in your $PWD.
+   Note:
    - You may have to module load singularity or apptainer first before running this command.
 
-## 2. GNU or Intel full environment set up
+## 2. Install spack-stack container based on which one is used
+### GNU or Intel full environment container
 1. Since the compilers are included with these containers, no additional steps are needed to obtain them like with the Intel runtime environment container. Run the following command to build the externalized spack-stack:
    ```
    python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 [-d <list,of,dirs>]
@@ -91,23 +96,22 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note:
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
-## 2. Intel runtime environment set up
-### Using host compilers
+### Intel runtime environment container with host compilers
 1. Verify that the host machine has Intel compilers and Intel MPI loaded. This is done by running one of the following commands:
    ```
    which ifort icx icpx
    echo $I_MPI_ROOT
    echo $INTEL_ONEAPI_MPI_ROOT
    ```
-2. If things look in order, then run the following to build the externalized spack-stack with the host compilers:
+2. If things look in order, then run the following from the modulefiles directory to build the externalized spack-stack with the host compilers:
    ```
    python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 --host-compilers [-d <list,of,dirs>]
    ```
    Note:
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
-### Using Intel sandbox
-1. Lets say the host machine doesn’t have the Intel compilers or Intel MPI installed. In this case, the user can create the Intel sandbox with the Intel compiles in them. To do that, the user would need to run the following commands:
+### Intel runtime environment container with Intel sandbox
+1. Lets say the host machine does not have the Intel compilers or Intel MPI installed. In this case, the user can create the Intel sandbox with the Intel compiles in them. To do that, the user would need to run the following commands:
    ```
    mkdir /example-dir/cache
    mkdir /example-dir/tmp
@@ -118,14 +122,14 @@ All containers use the same initial set up (step 1) and require the exectuables 
    Note: 
    - example-dir is the location of a writable directory with disk space available.
 
-2. After the Intel sandbox is built, run the following to build the externalized spack-stack with the Intel sandbox:
+2. After the Intel sandbox is built, run the following from the modulefiles directory to build the externalized spack-stack with the Intel sandbox compilers:
    ```
    python3 convert-modules.py -i $img -o $PWD/spack-stack-1.9.2 -s /path/to/intel-sandbox [-d <list,of,dirs>]
    ```
    Note:
    - [-d] argument is optional and lists all the dirs the wrapper scripts needs to bind to. Sorted by comma. Example: -d apps,work,work2
 
-### Switching compilers
+#### Switching compilers
 There may be a situation where you need to switch the compilers of the externalized spack-stack. The ```update_ss_container_compilers.sh``` does this without installing the entire stack again by modifying the Intel compilers and Intel MPI variables, and the singularity commands in these locations: stack-oneapi and stack-intel-oneapi-mpi lua files, and build and binary wrapper scripts found under the bin directories. See below for paths of the files that are modified. This process usually takes about a minute to complete. 
 
 |Files modified by the update_ss_container_compilers.sh script |
@@ -146,14 +150,55 @@ Note:
 
 ## 3. Building and running with the externalized spack-stack container
 ### Building
-Once the externalized spack-stack is built, the UFS WM of UFS Application needs to point to it. This is done by updating the ```MODULEPATH``` variable in the modulefiles. See the [UFS WM PR](https://github.com/ufs-community/ufs-weather-model/compare/develop...EdwardSnyder-NOAA:ufs-weather-model:container-ss-192) for an example of how the modulefiles are being updated. 
+Once the externalized spack-stack is built, the UFS WM or Application needs to point to it. This is done by setting the ```MODULEPATH``` variable to the externalized spack-stack location and adding the Intel packages with the versions from the spack-stack container to the modulefile. See tables below for the ```MODULEPATH``` variable paths and the Intel packages based on the spack-stack-1.9.2 container:
+| ```MODULEPATH``` variable paths                                                       | 
+|-----------                                                                            |
+|/full/path/to/modulefiles/spack-stack-1.9.2/Core                                       |   
+|/full/path/to/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0|   
+
+| Intel Packages |
+|-----------     |
+|stack-oneapi/2024.2.0|
+|stack-intel-oneapi-mpi/2021.13|
+
+An example of these modifications for Orion's modulefile in the UFS WM (```modulefiles/ufs_orion.intel.lua```) is below:
+```
+prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/Core")
+prepend_path("MODULEPATH", "/glade/work/epicufsrt/contrib/spack-stack/containerized/envs/ue-oneapi-2024.2.0-sandbox/modulefiles/spack-stack-1.9.2/intel-oneapi-mpi/2021.13-argr3sd/gcc/11.4.0")
+
+stack_intel_ver=os.getenv("stack_intel_ver") or "2024.2.0"
+load(pathJoin("stack-oneapi", stack_intel_ver))
+
+stack_impi_ver=os.getenv("stack_impi_ver") or "2021.13"
+load(pathJoin("stack-intel-oneapi-mpi", stack_impi_ver))
+
+-- Add singularity if it is not natively loaded
+load("singularity")
+
+load("ufs_common")
+
+setenv("CMAKE_Platform", "orion.intel")
+
+whatis("Description: UFS build environment")
+```
 
 ### Running
-After the application has been built, the executables need to be externalized. The simplest way to do that is to load the externalized spack-stack, and the stack-oneapi module. This will put the ```make-external``` script in the user's ```PATH``` variable. Then simply run the script to externalize the executable. Wildcards are also accepted here:
+After the application has been built, the executables need to be externalized. The simplest way to do that is to load the externalized spack-stack, and the stack-oneapi module or load the machine's modulefile. This will put the ```make-external``` script in the user's ```PATH``` variable. Then simply run the script to externalize the executable. Wildcards are also accepted here:
    ```
    make-external /path/to/executable.exe
    make-external /path/to/executables/*
    ```
+In addition, Slurm is the only job scheduler currently designed to work with the externalized spack-stack and requires the ```--mpi``` command line argument to be added to the srun command.
+
 ### Adaptation to the workflows
-Please note that additional modifications are needed to the UFS WM and Applications workflow to incorporate this new container method. See this [UFS WM PR](https://github.com/ufs-community/ufs-weather-model/compare/develop...EdwardSnyder-NOAA:ufs-weather-model:container-ss-192) for how to use this container with the UFS WM RTs system by updating the ```compile.sh``` file.
+Please note that additional modifications are needed to the UFS WM and Applications workflows to incorporate this new container method. The following is an example of externalizing the executables for the UFS WM, which is done by adding the ```make-external``` command to line 123 in the ```tests/compile.sh``` file:
+```
+122 rsync --remove-source-files "${BUILD_DIR}/ufs_model" "${PATHTR}/tests/${BUILD_NAME}.exe"
+123 make-external ${PATHTR}/tests/${BUILD_NAME}.exe # Creates executable wrapper scripts
+```
+Here is an example of the srun command with the MPI command line argument addition for Orion in the UFS WM (```tests/fv3_conf/fv3_slurm.IN_orion```):
+```
+srun --mpi=pmi2 --label -n @[TASKS] ./fv3.exe
+```
+
 
