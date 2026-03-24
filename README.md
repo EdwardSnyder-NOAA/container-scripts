@@ -58,16 +58,16 @@ singularity exec -e   -B /apps -B /work "${img}" $cmd $arg
 # Installing the externalized spack-stack container
 
 ## Types of containers
-There are three common types of spack-stack containers: (1) GNU, (2) Intel full environment, and (3) Intel runtime environment. 
+There are three common types of spack-stack containers: (1) GNU, (2) Intel full environment, and (3) Intel runtime environment.
 
-Both the GNU and Intel full environment containers include the compilers and can be built using just the python script. Due to Intel's End User Licensing Agreement, the Intel full environment cannot be distributed to users outside of the NOAA infrastructure. 
+Both the GNU and Intel full environment containers include the compilers and can be built using just the python script. Due to Intel's End User Licensing Agreement, the Intel full environment cannot be distributed to users outside of the NOAA infrastructure. NOAA developers interested in using the Intel full environment container should contact EPIC support at support.epic@noaa.gov for assistance with the distribution process.
 
 The Intel runtime environment container was created to meet users needs outside of the NOAA infrastructure. This container only includes the runtime environment, meaning it is missing the compilers, which are still needed in order for the spack-stack to work. Users have ***two*** compiler options when installing this container and that is to either use the [host compilers](#intel-runtime-environment-container-with-host-compilers) **or** the [Intel sandbox](#intel-runtime-environment-container-with-intel-sandbox). 
 
-All containers use the same initial set up (step 1) and require the exectuables to be externalized (step 3); but each container may require different python command line arguments based on which one is being used (step 2).
+All three types of containers use the same initial set up (step 1) and require the executables to be externalized (step 3); but each container may require different python command line arguments based on which one is being used (step 2).
 
 ## 1. Set up for all configurations
-1. Obtain the spack-stack container via [s3 bucket](https://noaa-ufs-gdas-pds.s3.amazonaws.com/index.html#spack-stack-containers/). The following command is for the most recent spack-stack container.
+1. As mentioned earlier, only the Intel runtime environment container is available to the public. Obtain the Intel runtime environment spack-stack container via [s3 bucket](https://noaa-ufs-gdas-pds.s3.amazonaws.com/index.html#spack-stack-containers/). The following command downloads the most recent Intel runtime environment spack-stack container:
    ```
    wget https://noaa-ufs-gdas-pds.s3.amazonaws.com/spack-stack-containers/ubuntu22.04-intel-ufs-env-v1.9.2-runtime.img
    ```
