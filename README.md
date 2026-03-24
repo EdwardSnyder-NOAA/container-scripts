@@ -140,7 +140,7 @@ There may be a situation where you need to switch the compilers of the externali
 |/path/to/modulefiles/spack-stack-1.9.2/oneapi/*/*/bin/* |
 
 
-To switch compilers, ensure that the new compilers are pre-loaded either using the [host compilers](#2a-using-host-compilers) or the [Intel sandbox](#2b-using-intel-sandbox). Once they are loaded, run the following commands:
+To switch compilers, ensure that the new compilers are pre-loaded either using the [host compilers](#intel-runtime-environment-container-with-host-compilers) or the [Intel sandbox](#intel-runtime-environment-container-with-intel-sandbox). Once they are loaded, run the following commands:
 ```
 cd /path/to/modulefiles
 ./update_ss_container_compilers.sh -o /path/to/modulefiles/spack-stack-1.9.2 [-s <path to Intel sandbox>]
